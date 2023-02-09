@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "convex"
+version = "0.1.1"
+description = "Python client for the reactive backend-as-a-service Convex."
+authors = ["Convex, Inc. <support@convex.dev>"]
+readme = "README.md"
+classifiers = [
+    "Topic :: Database :: Front-Ends",
+    "Programming Language :: JavaScript",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+[tool.poetry.dependencies]
+python = "^3.8"
+requests = "^2.28.1"
+
+[tool.poetry.group.dev.dependencies]
+autoflake = "^2.0.0"
+black = "^23.0.0"
+flake8 = { version = "^6.0.0", python = "^3.9" }
+flake8-bugbear = { version = "^23.0.0", python = "^3.9" }
+flake8-noqa = { version = "^1.3.0", python = "^3.9" }
+isort = "^5.10.1"
+mypy = "^1.0"
+pytest = "^7.1.2"
+pytest-profiling = "^1.7.0"
+twine = "^4.0.2"
+types-requests = "^2.27.30"
+typing-extensions = "^4.4.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+testpaths = [
+    "tests",
+    "integration",
+    "convex"
+]
