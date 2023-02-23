@@ -101,7 +101,9 @@ MAX_SAFE_INTEGER = 2**53
 def int_to_float(v: int) -> float:
     if not MIN_SAFE_INTEGER <= v <= MAX_SAFE_INTEGER:
         raise ValueError(
-            f"Integer {v} is outside the range of a Convex `Float64` (-2^53 to 2^53). Consider using a `ConvexInt64`, which corresponds to a `BigInt` in JavaScript Convex functions."
+            f"Integer {v} is outside the range of a Convex `Float64` (-2^53 to 2^53). "
+            "Consider using a `ConvexInt64`, which corresponds to a `BigInt` in "
+            "JavaScript Convex functions."
         )
     return float(v)
 
@@ -120,7 +122,8 @@ def validate_object_field(k: str) -> None:
 
     if not IDENTIFIER_REGEX.match(k):
         raise ValueError(
-            f"Field name {k} must only contain alphanumeric characters or underscores and can't start with a number."
+            f"Field name {k} must only contain alphanumeric characters or underscores "
+            "and can't start with a number."
         )
 
 
@@ -241,24 +244,33 @@ def strict_convex_to_json(v: ConvexValue) -> JsonValue:
     return _convex_to_json(v, coerce=False)
 
 
-# fmt: off
 # There's a server-enforced limit on total document size of 1MB. This could be
 # enforced for each field individually, but it could still exceed the document
 # size limit when combined, so let the server enforce this.
 def _convex_to_json(v: CoercibleToConvexValue, coerce: bool) -> JsonValue:
-
     # 1. values which roundtrip
-    if v is None: return None
-    if v is True or v is False: return v
-    if type(v) is float: return float_to_json(v)
-    if type(v) is str: return v
-    if type(v) is bytes: return buffer_to_json(v)
-    if type(v) is dict: return mapping_to_object_json(v, coerce)
-    if type(v) is list: return iterable_to_array_json(v, coerce)
-    if type(v) is Id: return v.to_json()
-    if type(v) is ConvexSet: return v.to_json()
-    if type(v) is ConvexMap: return v.to_json()
-    if type(v) is ConvexInt64: return v.to_json()
+    if v is None:
+        return None
+    if v is True or v is False:
+        return v
+    if type(v) is float:
+        return float_to_json(v)
+    if type(v) is str:
+        return v
+    if type(v) is bytes:
+        return buffer_to_json(v)
+    if type(v) is dict:
+        return mapping_to_object_json(v, coerce)
+    if type(v) is list:
+        return iterable_to_array_json(v, coerce)
+    if type(v) is Id:
+        return v.to_json()
+    if type(v) is ConvexSet:
+        return v.to_json()
+    if type(v) is ConvexMap:
+        return v.to_json()
+    if type(v) is ConvexInt64:
+        return v.to_json()
 
     if not coerce:
         raise TypeError(
@@ -268,20 +280,32 @@ def _convex_to_json(v: CoercibleToConvexValue, coerce: bool) -> JsonValue:
         )
 
     # 2. common types that don't roundtrip but have clear representations in Convex
-    if isinstance(v, int): return int_to_float(v)
-    if isinstance(v, tuple): return iterable_to_array_json(v, coerce)
-    if isinstance(v, set): return iterable_to_set_json(v, coerce)
-    if isinstance(v, frozenset): return iterable_to_set_json(v, coerce)
+    if isinstance(v, int):
+        return int_to_float(v)
+    if isinstance(v, tuple):
+        return iterable_to_array_json(v, coerce)
+    if isinstance(v, set):
+        return iterable_to_set_json(v, coerce)
+    if isinstance(v, frozenset):
+        return iterable_to_set_json(v, coerce)
 
     # 3. allow subclasses (which will not round-trip)
-    if isinstance(v, float): return float_to_json(v)
-    if isinstance(v, str): return v
-    if isinstance(v, bytes): return buffer_to_json(v)
-    if isinstance(v, dict): return mapping_to_object_json(v, coerce)
-    if isinstance(v, Id): return v.to_json()
-    if isinstance(v, list): return iterable_to_array_json(v, coerce)
-    if isinstance(v, ConvexSet): return v.to_json()
-    if isinstance(v, ConvexMap): return v.to_json()
+    if isinstance(v, float):
+        return float_to_json(v)
+    if isinstance(v, str):
+        return v
+    if isinstance(v, bytes):
+        return buffer_to_json(v)
+    if isinstance(v, dict):
+        return mapping_to_object_json(v, coerce)
+    if isinstance(v, Id):
+        return v.to_json()
+    if isinstance(v, list):
+        return iterable_to_array_json(v, coerce)
+    if isinstance(v, ConvexSet):
+        return v.to_json()
+    if isinstance(v, ConvexMap):
+        return v.to_json()
 
     # 4. check for implementing abstract classes and protocols
     try:
@@ -292,14 +316,17 @@ def _convex_to_json(v: CoercibleToConvexValue, coerce: bool) -> JsonValue:
     else:
         return buffer_to_json(v)
 
-    if isinstance(v, collections.abc.Mapping): return mapping_to_object_json(v, coerce)
-    if isinstance(v, collections.abc.Set): return iterable_to_set_json(v, coerce)
-    if isinstance(v, collections.abc.Sequence): return iterable_to_array_json(v, coerce)
+    if isinstance(v, collections.abc.Mapping):
+        return mapping_to_object_json(v, coerce)
+    if isinstance(v, collections.abc.Set):
+        return iterable_to_set_json(v, coerce)
+    if isinstance(v, collections.abc.Sequence):
+        return iterable_to_array_json(v, coerce)
 
     raise TypeError(
-        f"{v} is not a supported Convex type. To learn about Convex's supported types, see https://docs.convex.dev/using/types."
+        f"{v} is not a supported Convex type. "
+        "To learn about Convex's supported types, see https://docs.convex.dev/using/types."
     )
-# fmt: on
 
 
 def json_to_convex(v: JsonValue) -> ConvexValue:
