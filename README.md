@@ -1,7 +1,5 @@
 # Convex
 
-Build products, not backends!
-
 The official Python client for [Convex](https://convex.dev/), the stateful
 application platform that combines a custom database with an integrated
 execution environment. This Python client can write and read data from a Convex
