@@ -6,8 +6,7 @@ Convex is the TypeScript-native programmable database for the web. No need for
 backend containers, caches, queues, and query languages. Convex replaces all of
 them with a few simple APIs.
 
-This Python client can write and read data from a Convex backend with queries
-and mutations and run actions. Get up and running at
+This Python client can write and read data from a Convex backend with queries, mutations, and actions. Get up and running at
 [docs.convex.dev](https://docs.convex.dev/introduction/).
 
 Installation:
