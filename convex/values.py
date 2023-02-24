@@ -1,3 +1,4 @@
+"""Value types supported by Convex."""
 import base64
 import collections
 import dataclasses
@@ -50,7 +51,6 @@ __all__ = [
     "convex_to_json",
     "strict_convex_to_json",
     "json_to_convex",
-    "validate_object_field",
 ]
 
 JsonValue = Union[
@@ -108,7 +108,7 @@ def int_to_float(v: int) -> float:
     return float(v)
 
 
-def validate_object_field(k: str) -> None:
+def _validate_object_field(k: str) -> None:
     if len(k) == 0:
         raise ValueError("Empty field names are disallowed.")
     if len(k) > MAX_IDENTIFIER_LEN:
@@ -129,8 +129,9 @@ def validate_object_field(k: str) -> None:
 
 @dataclasses.dataclass
 class Id:
-    """
-    Id objects represent references to Convex documents. They contain a `table_name`
+    """Id objects represent references to Convex documents.
+
+    They contain a `table_name`
     string specifying a Convex table (tables can be viewed in
     [the dashboard](https://dashboard.convex.dev)) and a globably unique `id`
     string. If you'd like to learn more about the `id` string's format, see
@@ -142,6 +143,7 @@ class Id:
 
     @classmethod
     def from_json(cls, obj: Any) -> "Id":
+        """Convert from JSON to Id."""
         if not isinstance(obj["$id"], str):
             raise ValueError(f"Object {obj} isn't a valid Id: $id isn't a string.")
         parts = obj["$id"].split("|")
@@ -150,12 +152,13 @@ class Id:
         return Id(parts[0], parts[1])
 
     def to_json(self) -> JsonValue:
+        """Convert from Id to JSON."""
         idString = f"{self.table_name}|{self.id}"
         return {"$id": idString}
 
 
 def is_special_float(v: float) -> bool:
-    """Some values can't be serialized to JSON: return True if this is one of those."""
+    """Return True if value cannot be serialized to JSON."""
     return (
         math.isnan(v) or not math.isfinite(v) or (v == 0 and math.copysign(1, v) == -1)
     )
@@ -173,7 +176,7 @@ def mapping_to_object_json(v: abc.Mapping[Any, Any], coerce: bool) -> JsonValue:
     for key, val in v.items():
         if not isinstance(key, str):
             raise ValueError(f"Convex object keys must be strings, found {key}")
-        validate_object_field(key)
+        _validate_object_field(key)
         obj_val: JsonValue = _convex_to_json(val, coerce)
         d[key] = obj_val
     return d
@@ -330,8 +333,7 @@ def _convex_to_json(v: CoercibleToConvexValue, coerce: bool) -> JsonValue:
 
 
 def json_to_convex(v: JsonValue) -> ConvexValue:
-    "Convert from simple Python JSON objects to richer types."
-
+    """Convert from simple Python JSON objects to richer types."""
     if isinstance(v, (bool, float, str)):
         return v
     if v is None:
@@ -367,7 +369,7 @@ def json_to_convex(v: JsonValue) -> ConvexValue:
         for attr, value in v.items():
             # Currently the only attributes that start with an underscore
             # are _id and _creationTime, but more may be added in the future.
-            validate_object_field(attr)
+            _validate_object_field(attr)
             output[attr] = value
         return {k: json_to_convex(v) for k, v in v.items()}
     raise ValueError(f"Bad JSON value: {v}")
@@ -384,7 +386,8 @@ def _convex_to_json_string(v: CoercibleToConvexValue) -> str:
 
 
 def is_coercible_to_convex_value(v: Any) -> "TypeGuard[CoercibleToConvexValue]":
-    """
+    """Return True if value is coercible to a convex value.
+
     >>> is_coercible_to_convex_value(set([1,2,3]))
     True
     """
@@ -396,7 +399,8 @@ def is_coercible_to_convex_value(v: Any) -> "TypeGuard[CoercibleToConvexValue]":
 
 
 def is_convex_value(v: Any) -> "TypeGuard[ConvexValue]":
-    """
+    """Return True if value is a convex value.
+
     >>> is_convex_value(set([1,2,3]))
     False
     """

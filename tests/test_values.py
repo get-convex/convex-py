@@ -61,8 +61,8 @@ def test_ConvexMap() -> None:
 # It's even more important to check that values from the backend trountrip,
 # which is tested elsewhere.
 def coerced_roundtrip(original: CoercibleToConvexValue) -> None:
-    """
-    Assert that a Python value
+    """Assert that a coercible to Python value roundtrips to Convex types.
+
     - can be coerced to a Convex value (this may NOT roundtrip)
     - has a json representation that roundtrips through a Convex value
     - has a coerced Convex value that roundtrips through JSON representation
@@ -73,8 +73,8 @@ def coerced_roundtrip(original: CoercibleToConvexValue) -> None:
 
 
 def strict_roundtrip(original: ConvexValue) -> None:
-    """
-    Assert that a Python value
+    """Assert that a Python value roundtrips to Convex types.
+
     - roundtrips through json, and
     - has a json object representation that also roundtrips
     """

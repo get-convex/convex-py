@@ -1,3 +1,6 @@
 [flake8]
 extend_exclude = node_modules
 max-line-length = 100
+extend_ignore =
+per_file_ignores =
+    tests/*.py:D100,D103
