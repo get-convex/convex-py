@@ -2,6 +2,9 @@
 
 The official Python client for [Convex](https://convex.dev/).
 
+![PyPI](https://img.shields.io/pypi/v/convex?label=convex&logo=pypi)
+![GitHub](https://img.shields.io/github/license/get-convex/convex-py)
+
 Convex is the TypeScript-native programmable database for the web. No need for
 backend containers, caches, queues, and query languages. Convex replaces all of
 them with a few simple APIs.
