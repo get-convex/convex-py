@@ -171,3 +171,9 @@ ConvexMap([({'a': 1.0}, 123.0), ('b', 456.0)])
 
 ConvexMaps perform a copy of each inserted key/value pair, so they require more
 memory than Python's builtin dictionaries.
+
+# Versioning
+
+While we are pre-1.0.0, we'll update the minor version for large changes, and
+the patch version for small bugfixes. We may make backwards incompatible changes
+to the python client's API, but we will limit those to minor version bumps.

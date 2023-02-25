@@ -5,6 +5,9 @@ description = "Python client for the reactive backend-as-a-service Convex."
 authors = ["Convex, Inc. <support@convex.dev>"]
 license = "Apache-2.0"
 readme = "README.md"
+homepage = "https://convex.dev"
+repository = "https://github.com/get-convex/convex-py"
+documentation = "https://docs.convex.dev"
 classifiers = [
     "Topic :: Database :: Front-Ends",
     "Programming Language :: JavaScript",
