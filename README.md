@@ -11,7 +11,7 @@ them with a few simple APIs.
 
 This Python client can write and read data from a Convex backend with queries,
 mutations, and actions. Get up and running at
-[docs.convex.dev](https://docs.convex.dev/introduction/).
+[docs.convex.dev](https://docs.convex.dev/home).
 
 Installation:
 
