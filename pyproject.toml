@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "convex"
-version = "0.2.0"  # Also update in __init__.py
+version = "0.3.0"  # Also update in __init__.py
 description = "Python client for the reactive backend-as-a-service Convex."
 authors = ["Convex, Inc. <support@convex.dev>"]
 license = "Apache-2.0"

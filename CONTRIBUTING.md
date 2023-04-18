@@ -17,8 +17,18 @@ poetry install
 poetry run pytest
 ```
 
-Convex is a fast moving project developed by a dedicated team. We are not
-throwing code over the wall, nor are we expecting volunteers to do our job.
-We'll do our best to be responsive to reviews and issues, but please bear with
-us if things take a little time. For larger features, talk to us first and we'll
-be happy to talk things through.
+Convex is a fast moving project developed by a dedicated team. We're excited to
+contribute to the community by releasing this code, but we want to manage
+expectations as well.
+
+- We are a small company with a lot of product surface area.
+- We value a cohesive developer experience for folks building applications
+  across all of our languages and platforms.
+- We value transparency in how we operate.
+
+We're excited for community PRs. Be aware we may not get to it for a while.
+Smaller PRs that only affect documentation/comments are easier to review and
+integrate. For any larger or more fundamental changes, get in touch with us on
+Discord before you put in too much work to see if it's consistent with our short
+term plan. We think carefully about how our APIs contribute to a cohesive
+product, so chatting up front goes a long way.

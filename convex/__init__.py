@@ -28,11 +28,14 @@ __all__ = [
 ]
 
 
-__version__ = "0.2.0"  # Also update in pyproject.toml
+__version__ = "0.3.0"  # Also update in pyproject.toml
 
 
 class ConvexExecutionError(Exception):
     """Convex execution error on server."""
+
+
+FunctionArgs = Optional[Dict[str, CoercibleToConvexValue]]
 
 
 class ConvexClient:
@@ -61,12 +64,17 @@ class ConvexClient:
         """Set whether the result log lines should be printed on the console."""
         self.debug = value
 
-    def _request(
-        self, url: str, name: str, args: CoercibleToConvexValue
-    ) -> ConvexValue:
+    def _request(self, url: str, name: str, args: FunctionArgs) -> ConvexValue:
+        if args is None:
+            args = {}
+        if not type(args) is dict:
+            raise Exception(
+                f"Arguments to a Convex function must be a dictionary. Received: {args}"
+            )
+
         data: Dict[str, JsonValue] = {
             "path": name,
-            "args": convex_to_json(args),
+            "args": [convex_to_json(args)],
         }
         if self.debug:
             data["debug"] = self.debug
@@ -95,17 +103,17 @@ class ConvexClient:
             raise ConvexExecutionError(response["errorMessage"])
         raise Exception("Received unexpected response from Convex server.")
 
-    def query(self, name: str, *args: CoercibleToConvexValue) -> Any:
+    def query(self, name: str, args: FunctionArgs = None) -> Any:
         """Run a query on Convex."""
         url = f"{self.address}/api/query"
         return self._request(url, name, args)
 
-    def mutation(self, name: str, *args: CoercibleToConvexValue) -> Any:
+    def mutation(self, name: str, args: FunctionArgs = None) -> Any:
         """Run a mutation on Convex."""
         url = f"{self.address}/api/mutation"
         return self._request(url, name, args)
 
-    def action(self, name: str, *args: CoercibleToConvexValue) -> Any:
+    def action(self, name: str, args: FunctionArgs = None) -> Any:
         """Run an action on Convex."""
         url = f"{self.address}/api/action"
         return self._request(url, name, args)

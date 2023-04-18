@@ -5,13 +5,8 @@ The official Python client for [Convex](https://convex.dev/).
 ![PyPI](https://img.shields.io/pypi/v/convex?label=convex&logo=pypi)
 ![GitHub](https://img.shields.io/github/license/get-convex/convex-py)
 
-Convex is the TypeScript-native programmable database for the web. No need for
-backend containers, caches, queues, and query languages. Convex replaces all of
-them with a few simple APIs.
-
-This Python client can write and read data from a Convex backend with queries,
-mutations, and actions. Get up and running at
-[docs.convex.dev](https://docs.convex.dev/home).
+Write and read data from a Convex backend with queries, mutations, and actions.
+Get up and running at [docs.convex.dev](https://docs.convex.dev/home).
 
 Installation:
 
@@ -33,7 +28,7 @@ Basic usage:
   '_id': Id(table_name='messages', id='G3m0cCQp65GQDfUjUDnTPEj'),
   'author': 'Sarah',
   'body': "Yeah, it's working pretty well for me."}]
->>> client.mutation("sendMessage")
+>>> client.mutation("sendMessage", dict(author="Me", body="Hello!"))
 ```
 
 To find the url of your convex backend, open the deployment you want to work
