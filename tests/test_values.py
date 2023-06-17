@@ -8,17 +8,10 @@ from convex.values import (
     ConvexMap,
     ConvexSet,
     ConvexValue,
-    Id,
     convex_to_json,
     json_to_convex,
     strict_convex_to_json,
 )
-
-
-def test_id() -> None:
-    id = Id("tbl", "abc")
-    assert Id.from_json(id.to_json()) == id
-    assert id != Id("tbl", "def")
 
 
 def test_ConvexSet() -> None:
@@ -110,7 +103,6 @@ def test_strict_values() -> None:
     strict_roundtrip(None)
     strict_roundtrip(0.123)
     strict_roundtrip("abc")
-    strict_roundtrip(Id("tbl", "0123"))
     strict_roundtrip({"a": 0.123})
     strict_roundtrip({})
     strict_roundtrip({"a": 1.0, "b": 2.0})

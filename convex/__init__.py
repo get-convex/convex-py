@@ -1,4 +1,5 @@
 """The official Python client for [Convex](https://convex.dev/)."""
+import warnings
 from typing import Any, Dict, Optional
 
 import requests
@@ -9,14 +10,12 @@ from .values import (
     ConvexMap,
     ConvexSet,
     ConvexValue,
-    Id,
     JsonValue,
     convex_to_json,
     json_to_convex,
 )
 
 __all__ = [
-    "Id",
     "JsonValue",
     "ConvexValue",
     "convex_to_json",
@@ -28,7 +27,7 @@ __all__ = [
 ]
 
 
-__version__ = "0.3.0"  # Also update in pyproject.toml
+__version__ = "0.4.0"  # Also update in pyproject.toml
 
 
 class ConvexExecutionError(Exception):
@@ -89,6 +88,11 @@ class ConvexClient:
         if "logLines" in response:
             for line in response["logLines"]:
                 print(line)
+
+        deprecation_state = r.headers.get("x-convex-deprecation-state")
+        deprecation_msg = r.headers.get("x-convex-deprecation-message")
+        if deprecation_state and deprecation_msg:
+            warnings.warn(f"{deprecation_state}: {deprecation_msg}", stacklevel=1)
 
         try:
             r.raise_for_status()

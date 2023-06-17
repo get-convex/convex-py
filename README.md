@@ -35,7 +35,7 @@ To find the url of your convex backend, open the deployment you want to work
 with in the appropriate project in the
 [Convex dashboard](https://dashboard.convex.dev) and click "Settings" where the
 Deployment URL should be visible. To find out which queries, mutations, and
-actions are available check the Functions pane in the Dashboard
+actions are available check the Functions pane in the dashboard.
 
 To see logs emitted from Convex functions, set the debug mode to True.
 
@@ -169,6 +169,42 @@ ConvexMap([({'a': 1.0}, 123.0), ('b', 456.0)])
 
 ConvexMaps perform a copy of each inserted key/value pair, so they require more
 memory than Python's builtin dictionaries.
+
+# Pagination
+
+[Paginated queries](https://docs.convex.dev/database/pagination) are queries
+that accept pagination options as an argument and can be called repeatedly to
+produce additional "pages" of results.
+
+For a paginated query like this:
+
+```javascript
+import { query } from "./_generated/server";
+
+export default query(async ({ db }, { paginationOpts }) => {
+  return await db.query("messages").order("desc").paginate(paginationOpts);
+});
+```
+
+and returning all results 5 at a time in Python looks like this:
+
+```python
+import convex
+client = convex.ConvexClient('https://happy-animal-123.convex.cloud')
+
+done = False
+cursor = None
+data = []
+
+while not done:
+    result = client.query('listMessages', {"paginationOpts": {"numItems": 5, "cursor": cursor}})
+    cursor = result['continueCursor']
+    done = result["isDone"]
+    data.extend(result['page'])
+    print('got', len(result['page']), 'results')
+
+print('collected', len(data), 'results')
+```
 
 # Versioning
 

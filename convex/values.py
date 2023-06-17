@@ -1,7 +1,6 @@
 """Value types supported by Convex."""
 import base64
 import collections
-import dataclasses
 import json
 import math
 import re
@@ -45,7 +44,6 @@ if TYPE_CHECKING:
 
 
 __all__ = [
-    "Id",
     "JsonValue",
     "ConvexValue",
     "convex_to_json",
@@ -64,7 +62,6 @@ ConvexValue = Union[
     float,
     List["ConvexValue"],
     Dict[str, "ConvexValue"],
-    "Id",
     Set["ConvexValue"],
     Dict,
     bytes,
@@ -127,36 +124,6 @@ def _validate_object_field(k: str) -> None:
         )
 
 
-@dataclasses.dataclass
-class Id:
-    """Id objects represent references to Convex documents.
-
-    They contain a `table_name`
-    string specifying a Convex table (tables can be viewed in
-    [the dashboard](https://dashboard.convex.dev)) and a globably unique `id`
-    string. If you'd like to learn more about the `id` string's format, see
-    [our docs](https://docs.convex.dev/api/classes/values.GenericId).
-    """
-
-    table_name: str
-    id: str
-
-    @classmethod
-    def from_json(cls, obj: Any) -> "Id":
-        """Convert from JSON to Id."""
-        if not isinstance(obj["$id"], str):
-            raise ValueError(f"Object {obj} isn't a valid Id: $id isn't a string.")
-        parts = obj["$id"].split("|")
-        if len(parts) != 2:
-            raise ValueError(f"Object {obj} isn't a valid Id: Wrong number of parts.")
-        return Id(parts[0], parts[1])
-
-    def to_json(self) -> JsonValue:
-        """Convert from Id to JSON."""
-        idString = f"{self.table_name}|{self.id}"
-        return {"$id": idString}
-
-
 def is_special_float(v: float) -> bool:
     """Return True if value cannot be serialized to JSON."""
     return (
@@ -215,12 +182,12 @@ def convex_to_json(v: CoercibleToConvexValue) -> JsonValue:
 
     Convex types are described at https://docs.convex.dev/using/types and
     include Python builtin types str, int, float, bool, bytes, None, list, and
-    dict; as well as instances of the Id, ConvexSet, and ConvexMap classes.
+    dict; as well as instances of the ConvexSet and ConvexMap classes.
 
     >>> convex_to_json({'a': 1.0})
     {'a': 1.0}
-    >>> convex_to_json(Id("messages", "mqMw7arHuQa8TWcCXl8faAW"))
-    {'$id': 'messages|mqMw7arHuQa8TWcCXl8faAW'}
+    >>> convex_to_json(ConvexSet([1.0, 2.0, 3.0]))
+    {'$set': [1.0, 2.0, 3.0]}
 
     In addition to these basic Convex values, many Python types can be coerced
     to Convex values: for example, builtin sets:
@@ -266,8 +233,6 @@ def _convex_to_json(v: CoercibleToConvexValue, coerce: bool) -> JsonValue:
         return mapping_to_object_json(v, coerce)
     if type(v) is list:
         return iterable_to_array_json(v, coerce)
-    if type(v) is Id:
-        return v.to_json()
     if type(v) is ConvexSet:
         return v.to_json()
     if type(v) is ConvexMap:
@@ -301,8 +266,6 @@ def _convex_to_json(v: CoercibleToConvexValue, coerce: bool) -> JsonValue:
         return buffer_to_json(v)
     if isinstance(v, dict):
         return mapping_to_object_json(v, coerce)
-    if isinstance(v, Id):
-        return v.to_json()
     if isinstance(v, list):
         return iterable_to_array_json(v, coerce)
     if isinstance(v, ConvexSet):
@@ -343,8 +306,6 @@ def json_to_convex(v: JsonValue) -> ConvexValue:
         return convex_values
     if isinstance(v, dict) and len(v) == 1:
         attr = list(v.keys())[0]
-        if attr == "$id":
-            return Id.from_json(v)
         if attr == "$bytes":
             data_str = cast(str, v["$bytes"])
             return base64.standard_b64decode(data_str)

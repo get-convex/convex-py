@@ -1,5 +1,12 @@
 # Upcoming
 
+# 0.4.0
+
+- Remove the `Id` class since document IDs are strings for Convex functions
+  starting from
+  [NPM version 0.17](https://blog.convex.dev/announcing-convex-0-17-0/)
+- Add warnings when calling functions on deprecated versions of Convex
+
 # 0.3.0
 
 This release corresponds with Convex npm release 0.13.0.
