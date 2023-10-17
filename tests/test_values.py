@@ -3,10 +3,9 @@ import json
 from typing import Any, Optional
 
 import pytest
+
 from convex.values import (
     CoercibleToConvexValue,
-    ConvexMap,
-    ConvexSet,
     ConvexValue,
     convex_to_json,
     json_to_convex,
@@ -14,44 +13,8 @@ from convex.values import (
 )
 
 
-def test_ConvexSet() -> None:
-    s = ConvexSet([1])
-    assert s == s
-    s2 = ConvexSet([1])
-    assert s == s2
-
-    with pytest.raises(ValueError):
-        ConvexSet(["a", "a"])
-
-    # ConvexSets with items in different orders still compare equal
-    assert ConvexSet(["a", "b"]) == ConvexSet(["b", "a"])
-
-    # ConvexSets with the same items count as duplicates
-    with pytest.raises(ValueError):
-        ConvexSet([ConvexSet("ab"), ConvexSet("ba")])
-
-
-def test_ConvexMap() -> None:
-    s = ConvexMap([([], 2), ({}, 4)])
-    assert s == s
-    s2 = ConvexMap([([], 2), ({}, 4)])
-    assert s == s2
-
-    with pytest.raises(ValueError):
-        ConvexMap([("a", 1), ("a", 2)])
-
-    # ConvexMaps with items in different orders still compare equal
-    assert ConvexMap([("a", 1), ("b", 2)]) == ConvexMap([("b", 2), ("a", 1)])
-
-    # ConvexMaps with the same k/v pairs count as duplicates
-    with pytest.raises(ValueError):
-        ConvexMap(
-            [(ConvexMap([("a", 1), ("b", 2)]), 1), (ConvexMap([("b", 2), ("a", 1)]), 2)]
-        )
-
-
-# These tests check that values produced by this library rountrip.
-# It's even more important to check that values from the backend trountrip,
+# These tests check that values produced by this library roundtrip.
+# It's even more important to check that values from the backend roundtrip,
 # which is tested elsewhere.
 def coerced_roundtrip(original: CoercibleToConvexValue) -> None:
     """Assert that a coercible to Python value roundtrips to Convex types.
@@ -144,16 +107,6 @@ def test_subclassed_values() -> None:
 
     coerced_roundtrip(ListSubclass("abc"))
 
-    class ConvexSetSubclass(ConvexSet):
-        pass
-
-    coerced_roundtrip(ConvexSetSubclass("abc"))
-
-    class ConvexMapSubclass(ConvexMap):
-        pass
-
-    coerced_roundtrip(ConvexMapSubclass([("a", 1), ("b", 2)]))
-
 
 def test_coercion() -> None:
     # integers are coerced to floats
@@ -162,9 +115,7 @@ def test_coercion() -> None:
 
     coerced_roundtrip((1, 2))
     coerced_roundtrip(range(10))
-    coerced_roundtrip(set([1, 2, 3]))
     coerced_roundtrip(bytearray(b"abc"))
-    coerced_roundtrip(frozenset([frozenset([]), 1]))
     coerced_roundtrip(collections.Counter("asdf"))
 
 

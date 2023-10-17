@@ -1,5 +1,22 @@
 # Upcoming
 
+# 0.5.0
+
+- Remove ConvexMap and ConvexSet: these types are no longer allowed as arguments
+  or returned by Convex functions.
+
+  See the [NPM version 0.19.0](https://blog.convex.dev/announcing-convex-0-19-0)
+  release notes for more.
+
+  If you need to communicate with a backend with functions that accept or return
+  these types, _stay on version 0.4.0_.
+
+- `ConvexClient.set_debug()` no longer applies to production deployments: logs
+  from production deployments are no longer sent to clients, only appearing on
+  the Convex dashboard.
+
+- Add Support for `ConvexError`.
+
 # 0.4.0
 
 - Remove the `Id` class since document IDs are strings for Convex functions

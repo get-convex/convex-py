@@ -3,22 +3,10 @@ import base64
 import collections
 import json
 import math
-import re
 import struct
 import sys
 from collections import abc
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Set,
-    Tuple,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Dict, List, Union, cast
 
 if sys.version_info[1] < 9:
     # In Python 3.8, abc.* types don't implement __getitem__
@@ -62,11 +50,8 @@ ConvexValue = Union[
     float,
     List["ConvexValue"],
     Dict[str, "ConvexValue"],
-    Set["ConvexValue"],
     Dict,
     bytes,
-    "ConvexSet",
-    "ConvexMap",
     "ConvexInt64",
 ]
 
@@ -77,13 +62,22 @@ CoercibleToConvexValue = Union[
     int,
     abc.Mapping["CoercibleToConvexValue", "CoercibleToConvexValue"],
     abc.Sequence["CoercibleToConvexValue"],
-    abc.Set["CoercibleToConvexValue"],
 ]
 
 
-MAX_IDENTIFIER_LEN = 64
-ALL_UNDERSCORES = re.compile("^_+$")
-IDENTIFIER_REGEX = re.compile("^[a-zA-Z_][a-zA-Z0-9_]{0,63}$")
+class ConvexError(Exception):
+    """Custom ConvexError to handle custom application-level errors."""
+
+    def __init__(self, data: ConvexValue):
+        """Instantiate a ConvexError from a ConvexValue that is passed in."""
+        super().__init__(
+            data if isinstance(data, str) else _convex_to_json_string(data)
+        )
+        self.data = data
+        self._a = True
+
+
+MAX_IDENTIFIER_LEN = 1024
 
 MIN_INT64 = -(2**63)
 MAX_INT64 = 2**63 - 1
@@ -114,14 +108,14 @@ def _validate_object_field(k: str) -> None:
         )
     if k.startswith("$"):
         raise ValueError(f"Field name {k} starts with a '$', which is reserved.")
-    if ALL_UNDERSCORES.match(k):
-        raise ValueError(f"Field name {k} can't exclusively be underscores.")
 
-    if not IDENTIFIER_REGEX.match(k):
-        raise ValueError(
-            f"Field name {k} must only contain alphanumeric characters or underscores "
-            "and can't start with a number."
-        )
+    for char in k:
+        # Non-control ASCII characters
+        if ord(char) < 32 or ord(char) >= 127:
+            raise ValueError(
+                f"Field name '{k}' has invalid character '{char}': "
+                "Field names can only contain non-control ASCII characters"
+            )
 
 
 def is_special_float(v: float) -> bool:
@@ -149,32 +143,14 @@ def mapping_to_object_json(v: abc.Mapping[Any, Any], coerce: bool) -> JsonValue:
     return d
 
 
-def mapping_to_map_json(
-    v: abc.Mapping[CoercibleToConvexValue, CoercibleToConvexValue], coerce: bool
-) -> JsonValue:
-    pairs: List[JsonValue] = []
-    for key, val in v.items():
-        p1: JsonValue = _convex_to_json(key, coerce)
-        p2: JsonValue = _convex_to_json(val, coerce)
-        pair: List[JsonValue] = [p1, p2]
-        pairs.append(pair)
-    return {"$map": pairs}
-
-
 def buffer_to_json(v: Any) -> JsonValue:
     return {"$bytes": base64.standard_b64encode(v).decode("ascii")}
 
 
 def iterable_to_array_json(v: abc.Iterable[Any], coerce: bool) -> JsonValue:
-    # Convex arrays can have 1024 items maximum.
+    # Convex arrays can have 8192 items maximum.
     # Let the server check this for now.
     return [_convex_to_json(x, coerce) for x in v]
-
-
-def iterable_to_set_json(v: abc.Iterable[Any], coerce: bool) -> JsonValue:
-    # Convex sets can have 1024 items maximum.
-    # Let the server check this for now.
-    return {"$set": [_convex_to_json(x, coerce) for x in v]}
 
 
 def convex_to_json(v: CoercibleToConvexValue) -> JsonValue:
@@ -182,29 +158,35 @@ def convex_to_json(v: CoercibleToConvexValue) -> JsonValue:
 
     Convex types are described at https://docs.convex.dev/using/types and
     include Python builtin types str, int, float, bool, bytes, None, list, and
-    dict; as well as instances of the ConvexSet and ConvexMap classes.
+    dict, as well as instances of the ConvexInt64 class.
 
     >>> convex_to_json({'a': 1.0})
     {'a': 1.0}
-    >>> convex_to_json(ConvexSet([1.0, 2.0, 3.0]))
-    {'$set': [1.0, 2.0, 3.0]}
 
     In addition to these basic Convex values, many Python types can be coerced
-    to Convex values: for example, builtin sets:
+    to Convex values: for example, tuples:
 
-    >>> convex_to_json(set([1.0, 2.0, 3.0]))
-    {'$set': [1.0, 2.0, 3.0]}
+    >>> convex_to_json((1.0, 2.0, 3.0))
+    [1.0, 2.0, 3.0]
 
-    These coerced values will be different when roundtripped:
+    Python plays fast and loose with ints and floats (divide one int by another,
+    get a float!), which makes treating these as two separate types in Convex
+    functions awkward. Convex functions run in JavaScript, where `number` (an
+    IEEE 754 double-precision float) is frequently used for both ints and
+    floats.
+    To ensure Convex functions receive floats, both ints and floats in Python are
+    converted to floats.
 
-    >>> json_to_convex(convex_to_json(set([1.0, 2.0, 3.0])))
-    ConvexSet([1.0, 2.0, 3.0])
+    >>> json_to_convex(convex_to_json(1.23))
+    1.23
+    >>> json_to_convex(convex_to_json(17))
+    17.0
 
-    While Python plays fast and loose with ints and floats (divide one int by
-    another, get a float!), they correspond to two different types in Convex
-    functions: JavaScript numbers (Python float) and JavaScript bigints (Python
-    int). To ensure Convex functions receive the correct type (typically float),
-    you may want to cast inputs from int to float.
+    Convex supports storing Int64s in the database, represented in JavaScript as
+    BigInts. To specify an Int64, use the ConvexInt64 wrapper type.
+
+    >>> json_to_convex(convex_to_json(ConvexInt64(17)))
+    ConvexInt64(17)
     """
     return _convex_to_json(v, coerce=True)
 
@@ -233,10 +215,6 @@ def _convex_to_json(v: CoercibleToConvexValue, coerce: bool) -> JsonValue:
         return mapping_to_object_json(v, coerce)
     if type(v) is list:
         return iterable_to_array_json(v, coerce)
-    if type(v) is ConvexSet:
-        return v.to_json()
-    if type(v) is ConvexMap:
-        return v.to_json()
     if type(v) is ConvexInt64:
         return v.to_json()
 
@@ -252,10 +230,6 @@ def _convex_to_json(v: CoercibleToConvexValue, coerce: bool) -> JsonValue:
         return int_to_float(v)
     if isinstance(v, tuple):
         return iterable_to_array_json(v, coerce)
-    if isinstance(v, set):
-        return iterable_to_set_json(v, coerce)
-    if isinstance(v, frozenset):
-        return iterable_to_set_json(v, coerce)
 
     # 3. allow subclasses (which will not round-trip)
     if isinstance(v, float):
@@ -268,10 +242,6 @@ def _convex_to_json(v: CoercibleToConvexValue, coerce: bool) -> JsonValue:
         return mapping_to_object_json(v, coerce)
     if isinstance(v, list):
         return iterable_to_array_json(v, coerce)
-    if isinstance(v, ConvexSet):
-        return v.to_json()
-    if isinstance(v, ConvexMap):
-        return v.to_json()
 
     # 4. check for implementing abstract classes and protocols
     try:
@@ -284,8 +254,6 @@ def _convex_to_json(v: CoercibleToConvexValue, coerce: bool) -> JsonValue:
 
     if isinstance(v, collections.abc.Mapping):
         return mapping_to_object_json(v, coerce)
-    if isinstance(v, collections.abc.Set):
-        return iterable_to_set_json(v, coerce)
     if isinstance(v, collections.abc.Sequence):
         return iterable_to_array_json(v, coerce)
 
@@ -319,10 +287,6 @@ def json_to_convex(v: JsonValue) -> ConvexValue:
             if not is_special_float(f):
                 raise ValueError("Not a special float: {f}")
             return cast(float, f)
-        if attr == "$set":
-            return ConvexSet.from_json(v)
-        if attr == "$map":
-            return ConvexMap.from_json(v)
         if attr.startswith("$"):
             raise ValueError(f"Bad JSON value: {v}")
     if isinstance(v, dict):
@@ -349,7 +313,7 @@ def _convex_to_json_string(v: CoercibleToConvexValue) -> str:
 def is_coercible_to_convex_value(v: Any) -> "TypeGuard[CoercibleToConvexValue]":
     """Return True if value is coercible to a convex value.
 
-    >>> is_coercible_to_convex_value(set([1,2,3]))
+    >>> is_coercible_to_convex_value((1,2,3))
     True
     """
     try:
@@ -362,7 +326,7 @@ def is_coercible_to_convex_value(v: Any) -> "TypeGuard[CoercibleToConvexValue]":
 def is_convex_value(v: Any) -> "TypeGuard[ConvexValue]":
     """Return True if value is a convex value.
 
-    >>> is_convex_value(set([1,2,3]))
+    >>> is_convex_value((1,2,3))
     False
     """
     try:
@@ -400,209 +364,3 @@ class ConvexInt64:
         if type(other) is not ConvexInt64:
             return cast(bool, other == self.value)
         return other.value == self.value
-
-
-# This docstring also exists in the README, it should match there.
-class ConvexSet(abc.Set[ConvexValue]):
-    """
-    Similar to a Python set, but any Convex values can be items.
-
-    ConvexSets are returned from Convex cloud function calls that return
-    JavaScript Sets.
-
-    Generally when calling Convex functions from Python, a Python builtin
-    set can be used instead of a ConvexSet.
-    But for representing unusual types like sets containing objects, you'll have to use a ConvexSet:
-
-    >>> set([{'a': 1}])
-    Traceback (most recent call last):
-        ...
-    TypeError: unhashable type: 'dict'
-    >>> ConvexSet([{'a': 1}])
-    ConvexSet([{'a': 1.0}])
-
-    ConvexSet instances are immutable so must be fully populated when being
-    constructed. In order to store mutable items, ConvexSets store snapshots
-    of data when it was added.
-
-    >>> mutable_dict = {'a': 1}
-    >>> s = ConvexSet([mutable_dict, 'hello', 1])
-    >>> mutable_dict in s
-    True
-    >>> mutable_dict['b'] = 2
-    >>> mutable_dict in s
-    False
-    >>> s
-    ConvexSet([{'a': 1.0}, 'hello', 1.0])
-
-    ConvexSets perform a copy of each inserted item, so they require more memory
-    than Python's builtin sets.
-    """
-
-    def __init__(self, items: Iterable[CoercibleToConvexValue]) -> None:
-        self._elements: Dict[str, ConvexValue] = {}
-        self._ordered: List[Tuple[str, ConvexValue]] = []
-        ConvexSet._initialize(self, (convex_to_json(item) for item in items), False)
-
-    @staticmethod
-    def from_json(data: JsonValue) -> "ConvexSet":
-        """Build a ConvexSet from its JSON representation."""
-        if type(data) is not dict or len(data) != 1:
-            raise ValueError("Invalid json objects for ConvexSet")
-        (attr,) = data.keys()
-        if attr != "$set":
-            raise ValueError("Invalid json objects for ConvexSet")
-
-        s = ConvexSet([])
-        items_data = cast(List[JsonValue], data["$set"])
-        ConvexSet._initialize(s, items_data, True)
-        return s
-
-    @staticmethod
-    def _initialize(
-        s: "ConvexSet", json_items: Iterable[JsonValue], preserve_order: bool
-    ) -> None:
-        for json_item in json_items:
-            hash = json.dumps(json_item)
-            obj_item = json_to_convex(json_item)
-            if hash in s._elements:
-                raise ValueError(f"Duplicate value in ConvexSet: {obj_item!r}")
-            s._elements[hash] = obj_item
-            s._ordered.append((hash, obj_item))
-
-        if not preserve_order:
-            s._ordered = sorted(s._elements.items())
-
-    def to_json(self) -> JsonValue:
-        # Convex sets can have 1024 items maximum.
-        # Let the server check this for now.
-        return {"$set": [convex_to_json(v) for _, v in self._ordered]}
-
-    # collections.abc.Set methods
-    def __contains__(self, item: object) -> bool:
-        try:
-            json_object = convex_to_json(cast(CoercibleToConvexValue, item))
-        except (ValueError, TypeError):
-            return False
-        hash = json.dumps(json_object)
-        return hash in self._elements
-
-    def __iter__(self) -> Iterator[ConvexValue]:
-        return (el for _hash, el in self._ordered)
-
-    def __len__(self) -> int:
-        return len(self._ordered)
-
-    # bonus methods
-    def __eq__(self, other: Any) -> bool:
-        if type(other) is not ConvexSet:
-            return False
-        return other._elements == self._elements
-
-    def __repr__(self) -> str:
-        return (
-            f"ConvexSet([{', '.join(repr(el) for hash, el in self._elements.items())}])"
-        )
-
-
-# This docstring also exists in the README, it should match there.
-class ConvexMap(abc.Mapping[ConvexValue, ConvexValue]):
-    """
-    Similar to a Python map, but any Convex values can be keys.
-
-    ConvexMaps are returned from Convex cloud function calls that return
-    JavaScript Maps.
-
-    ConvexMaps are useful when calling Convex functions that expect a Map
-    because dictionaries correspond to JavaScript objects, not Maps.
-
-    ConvexMap instances are immutable so must be fully populated when being
-    constructed. In order to store mutable items, ConvexMaps store snapshots
-    of data when it was added.
-
-    >>> mutable_dict = {'a': 1}
-    >>> s = ConvexMap([(mutable_dict, 123), ('b', 456)])
-    >>> mutable_dict in s
-    True
-    >>> mutable_dict['b'] = 2
-    >>> mutable_dict in s
-    False
-    >>> s
-    ConvexMap([({'a': 1.0}, 123.0), ('b', 456.0)])
-
-    ConvexMaps perform a copy of each inserted key/value pair, so they require more
-    memory than Python's builtin dictionaries.
-    """
-
-    def __init__(
-        self, items: Iterable[Tuple[CoercibleToConvexValue, CoercibleToConvexValue]]
-    ) -> None:
-        self._kv_pairs: Dict[str, Tuple[ConvexValue, ConvexValue]] = {}
-        self._ordered: List[Tuple[str, Tuple[ConvexValue, ConvexValue]]] = []
-        ConvexMap._initialize(
-            self, ((convex_to_json(k), convex_to_json(v)) for k, v in items), False
-        )
-
-    @staticmethod
-    def from_json(data: JsonValue) -> "ConvexMap":
-        """Build a ConvexMap from its JSON representation."""
-        if type(data) is not dict or len(data) != 1:
-            raise ValueError("Invalid json objects for ConvexMap")
-        (attr,) = data.keys()
-        if attr != "$map":
-            raise ValueError("Invalid json objects for ConvexMap")
-
-        s = ConvexMap([])
-        kv_data = cast(List[Tuple[JsonValue, JsonValue]], data["$map"])
-        ConvexMap._initialize(s, kv_data, True)
-        return s
-
-    @staticmethod
-    def _initialize(
-        s: "ConvexMap",
-        json_items: Iterable[Tuple[JsonValue, JsonValue]],
-        preserve_order: bool,
-    ) -> None:
-        for json_key, json_value in json_items:
-            hash = json.dumps(json_key)
-            obj_key = json_to_convex(json_key)
-            if hash in s._kv_pairs:
-                raise ValueError(f"Duplicate key in ConvexMap: {obj_key!r}")
-            obj_value = json_to_convex(json_value)
-            pair = (obj_key, obj_value)
-            s._kv_pairs[hash] = pair
-            s._ordered.append((hash, pair))
-
-        if not preserve_order:
-            s._ordered = sorted(s._kv_pairs.items())
-
-    def to_json(self) -> JsonValue:
-        # Convex maps can have 1024 items maximum.
-        # Let the server check this for now.
-        return {
-            "$map": [
-                [convex_to_json(k), convex_to_json(v)] for _, (k, v) in self._ordered
-            ]
-        }
-
-    # collections.abc.Mapping methods
-    def __getitem__(self, key: CoercibleToConvexValue) -> ConvexValue:
-        hash = json.dumps(convex_to_json(key))
-        if hash not in self._kv_pairs:
-            raise KeyError(f"Key {key!r} not in ConvexMap")
-        return self._kv_pairs[hash][1]
-
-    def __iter__(self) -> Iterator[ConvexValue]:
-        return (k for _, (k, _) in self._ordered)
-
-    def __len__(self) -> int:
-        return len(self._ordered)
-
-    # bonus methods
-    def __eq__(self, other: Any) -> bool:
-        if type(other) is not ConvexMap:
-            return False
-        return other._kv_pairs == self._kv_pairs
-
-    def __repr__(self) -> str:
-        return f"ConvexMap([{', '.join(repr((k, v)) for hash, (k, v) in self._kv_pairs.items())}])"

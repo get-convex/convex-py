@@ -7,8 +7,7 @@ from requests.exceptions import HTTPError
 
 from .values import (
     CoercibleToConvexValue,
-    ConvexMap,
-    ConvexSet,
+    ConvexError,
     ConvexValue,
     JsonValue,
     convex_to_json,
@@ -22,12 +21,10 @@ __all__ = [
     "json_to_convex",
     "ConvexError",
     "ConvexClient",
-    "ConvexSet",
-    "ConvexMap",
 ]
 
 
-__version__ = "0.4.0"  # Also update in pyproject.toml
+__version__ = "0.5.0"  # Also update in pyproject.toml
 
 
 class ConvexExecutionError(Exception):
@@ -73,19 +70,33 @@ class ConvexClient:
 
         data: Dict[str, JsonValue] = {
             "path": name,
-            "args": [convex_to_json(args)],
+            "format": "convex_encoded_json",
+            "args": convex_to_json(args),
         }
-        if self.debug:
-            data["debug"] = self.debug
 
         headers = self.headers.copy()
         if self.auth is not None:
             headers["Authorization"] = self.auth
 
         r = requests.post(url, json=data, headers=headers)
-        response = r.json()
 
-        if "logLines" in response:
+        # If we re-raise in except, Python will confusingly print out all of the previous
+        # exceptions. To avoid this, set a response variable and raise outside of the except block
+        # if necessary.
+        try:
+            response = r.json()
+        except requests.exceptions.JSONDecodeError:
+            response = None
+
+        if not response:
+            # If it's not json, it's probably a connectivity error or an error issued by
+            # convex infrastructure.
+            r.raise_for_status()
+            # If it's not an error, then we've unexpectedly gotten some valid response we can't
+            # parse.
+            raise ConvexExecutionError(f"Unexpected response format: {r.text}")
+
+        if self.debug and "logLines" in response:
             for line in response["logLines"]:
                 print(line)
 
@@ -94,6 +105,7 @@ class ConvexClient:
         if deprecation_state and deprecation_msg:
             warnings.warn(f"{deprecation_state}: {deprecation_msg}", stacklevel=1)
 
+        # If it was valid json, but an error, provide a little more info from the json.
         try:
             r.raise_for_status()
         except HTTPError:
@@ -104,6 +116,8 @@ class ConvexClient:
         if response["status"] == "success":
             return json_to_convex(response["value"])
         if response["status"] == "error":
+            if "errorData" in response:
+                raise ConvexError(response["errorData"])
             raise ConvexExecutionError(response["errorMessage"])
         raise Exception("Received unexpected response from Convex server.")
 
