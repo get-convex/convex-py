@@ -126,7 +126,11 @@ impl PyConvexClient {
             )
         });
         match res {
-            Ok(res) => Ok(res.into()),
+            Ok(res) => {
+                let mut py_res: PyQuerySubscription = res.into();
+                py_res.rt_handle = Some(self.rt.handle().clone());
+                Ok(py_res)
+            },
             Err(e) => Err(PyException::new_err(e.to_string())),
         }
     }
@@ -216,9 +220,13 @@ impl PyConvexClient {
         }
     }
 
-    /// Get a consistent view of the results of multiple queries (query set).
+    /// Get a consistent view of the results of every query the client is
+    /// currently subscribed to. This set changes over time as subscriptions
+    /// are added and dropped.
     pub fn watch_all(&mut self, _py: Python<'_>) -> PyQuerySetSubscription {
-        self.client.watch_all().into()
+        let mut py_res: PyQuerySetSubscription = self.client.watch_all().into();
+        py_res.rt_handle = Some(self.rt.handle().clone());
+        py_res
     }
 
     /// Set auth for use when calling Convex functions.
