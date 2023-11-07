@@ -1,8 +1,3 @@
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
-};
-
 use pyo3::{
     exceptions::PyException,
     types::{
@@ -12,7 +7,6 @@ use pyo3::{
         PyFloat,
         PyInt,
         PyList,
-        PySet,
         PyString,
     },
     IntoPy,
@@ -36,22 +30,6 @@ pub fn value_to_py(py: Python<'_>, v: convex::Value) -> PyObject {
                 py_list.append(value_to_py(py, item)).unwrap();
             }
             py_list.into()
-        },
-        convex::Value::Set(set) => {
-            let py_set = pyo3::types::PySet::empty(py).unwrap();
-            for item in set {
-                py_set.add(value_to_py(py, item)).unwrap();
-            }
-            py_set.into()
-        },
-        convex::Value::Map(map) => {
-            let py_dict = PyDict::new(py);
-            for (key, value) in map {
-                py_dict
-                    .set_item(value_to_py(py, key), value_to_py(py, value))
-                    .unwrap();
-            }
-            py_dict.into()
         },
         convex::Value::Object(obj) => {
             let py_dict = PyDict::new(py);
@@ -92,25 +70,6 @@ pub fn py_to_value(py_val: &PyAny) -> PyResult<convex::Value> {
             vec.push(inner_value);
         }
         return Ok(convex::Value::Array(vec));
-    }
-    if py_val.is_instance_of::<PySet>() {
-        let py_set = py_val.downcast::<PySet>()?;
-        let mut set: BTreeSet<convex::Value> = BTreeSet::new();
-        for item in py_set {
-            let inner_value: convex::Value = py_to_value(item)?;
-            set.insert(inner_value);
-        }
-        return Ok(convex::Value::Set(set));
-    }
-    if py_val.is_instance_of::<PyDict>() {
-        let py_map = py_val.downcast::<PyDict>()?;
-        let mut map: BTreeMap<convex::Value, convex::Value> = BTreeMap::new();
-        for (key, value) in py_map {
-            let inner_key: convex::Value = py_to_value(key)?;
-            let inner_value: convex::Value = py_to_value(value)?;
-            map.insert(inner_key, inner_value);
-        }
-        return Ok(convex::Value::Map(map));
     }
     if py_val.is_none() {
         return Ok(convex::Value::Null);
