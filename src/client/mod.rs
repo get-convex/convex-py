@@ -1,5 +1,9 @@
 use std::{
     collections::BTreeMap,
+    io::{
+        self,
+        Write,
+    },
     ops::Deref,
 };
 
@@ -24,6 +28,22 @@ use tokio::{
         sleep,
         Duration,
     },
+};
+use tracing::{
+    field::{
+        Field,
+        Visit,
+    },
+    subscriber::set_global_default,
+    Event,
+    Level,
+    Subscriber,
+};
+use tracing_subscriber::{
+    layer::Context,
+    prelude::__tracing_subscriber_SubscriberExt,
+    Layer,
+    Registry,
 };
 
 use crate::{
@@ -299,11 +319,54 @@ impl PyErrArguments for ConvexError {
     }
 }
 
+struct UDFLogVisitor {
+    fields: BTreeMap<String, String>,
+}
+
+impl UDFLogVisitor {
+    fn new() -> Self {
+        UDFLogVisitor {
+            fields: BTreeMap::new(),
+        }
+    }
+}
+
+// Extracts a BTreeMap from our log line
+impl Visit for UDFLogVisitor {
+    fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
+        let s = format!("{:?}", value);
+        self.fields.insert(field.name().to_string(), s);
+    }
+}
+
+struct ConvexLoggingLayer;
+
+impl<S: Subscriber> Layer<S> for ConvexLoggingLayer {
+    fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+        let mut visitor = UDFLogVisitor::new();
+        event.record(&mut visitor);
+        let mut log_writer = io::stdout();
+        if let Some(message) = visitor.fields.get("message") {
+            writeln!(log_writer, "{}", message).unwrap();
+        }
+    }
+}
+
+#[pyfunction]
+fn init_logging() {
+    let subscriber = Registry::default().with(ConvexLoggingLayer.with_filter(
+        tracing_subscriber::filter::Targets::new().with_target("convex_logs", Level::DEBUG),
+    ));
+
+    set_global_default(subscriber).expect("Failed to set up custom logging subscriber");
+}
+
 #[pymodule]
 fn py_client(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyConvexClient>()?;
     m.add_class::<PyQuerySubscription>()?;
     m.add_class::<PyQuerySetSubscription>()?;
     m.add("ConvexError", py.get_type::<ConvexError>())?;
+    m.add_function(wrap_pyfunction!(init_logging, m)?)?;
     Ok(())
 }
