@@ -16,14 +16,17 @@ use parking_lot::Mutex;
 use pyo3::{
     self,
     exceptions::{
-        PyAssertionError,
+        PyException,
         PyNotImplementedError,
         PyStopAsyncIteration,
         PyStopIteration,
     },
     prelude::*,
     pyclass::CompareOp,
-    types::PyDict,
+    types::{
+        PyDict,
+        PyString,
+    },
     IntoPy,
 };
 use tokio::time::{
@@ -31,7 +34,10 @@ use tokio::time::{
     Duration,
 };
 
-use crate::query_result::value_to_py;
+use crate::{
+    client::ConvexError,
+    query_result::value_to_py,
+};
 
 #[pyclass]
 pub struct PyQuerySubscription {
@@ -136,7 +142,16 @@ impl PyQuerySubscription {
         })?;
         match res.unwrap() {
             FunctionResult::Value(v) => Ok(value_to_py(py, v)),
-            FunctionResult::ErrorMessage(e) => Err(PyErr::new::<PyAssertionError, _>(e)),
+            FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
+            FunctionResult::ConvexError(e) => {
+                let ce = ConvexError::new(
+                    value_to_py(py, convex::Value::String(e.message))
+                        .downcast::<PyString>(py)?
+                        .into(),
+                    value_to_py(py, e.data),
+                );
+                Err(PyErr::new::<ConvexError, _>(ce))
+            },
         }
     }
 
@@ -152,7 +167,16 @@ impl PyQuerySubscription {
             let _ = query_sub.lock().insert(query_sub_inner);
             Python::with_gil(|py| match res.unwrap() {
                 FunctionResult::Value(v) => Ok(value_to_py(py, v)),
-                FunctionResult::ErrorMessage(e) => Ok(value_to_py(py, convex::Value::String(e))),
+                FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
+                FunctionResult::ConvexError(e) => {
+                    let ce = ConvexError::new(
+                        value_to_py(py, convex::Value::String(e.message))
+                            .downcast::<PyString>(py)?
+                            .into(),
+                        value_to_py(py, e.data),
+                    );
+                    Err(PyErr::new::<ConvexError, _>(ce))
+                },
             })
         })?;
         Ok(Some(fut.into()))
@@ -210,6 +234,14 @@ impl PyQuerySetSubscription {
                 FunctionResult::ErrorMessage(e) => {
                     value_to_py(py, convex::Value::String(e.clone()))
                 },
+                FunctionResult::ConvexError(e) => {
+                    let e = e.clone();
+                    (
+                        value_to_py(py, convex::Value::String(e.message)),
+                        value_to_py(py, e.data),
+                    )
+                        .to_object(py)
+                },
             };
             py_dict.set_item(py_sub_id.into_py(py), sub_value).unwrap();
         }
@@ -238,7 +270,15 @@ impl PyQuerySetSubscription {
                     let sub_value: PyObject = match function_result.unwrap() {
                         FunctionResult::Value(v) => value_to_py(py, v.clone()),
                         FunctionResult::ErrorMessage(e) => {
-                            value_to_py(py, convex::Value::String(e.clone()))
+                            value_to_py(py, convex::Value::String(e.to_string()))
+                        },
+                        FunctionResult::ConvexError(e) => {
+                            let e = e.clone();
+                            (
+                                value_to_py(py, convex::Value::String(e.message)),
+                                value_to_py(py, e.data),
+                            )
+                                .to_object(py)
                         },
                     };
                     py_dict.set_item(py_sub_id.into_py(py), sub_value).unwrap();

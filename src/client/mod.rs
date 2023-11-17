@@ -16,6 +16,7 @@ use pyo3::{
         PyDict,
         PyString,
     },
+    PyErrArguments,
 };
 use tokio::{
     runtime,
@@ -158,7 +159,16 @@ impl PyConvexClient {
         match res {
             Ok(res) => match res {
                 FunctionResult::Value(v) => Ok(value_to_py(py, v)),
-                FunctionResult::ErrorMessage(e) => Ok(value_to_py(py, convex::Value::String(e))),
+                FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
+                FunctionResult::ConvexError(e) => {
+                    let ce = ConvexError::new(
+                        value_to_py(py, convex::Value::String(e.message))
+                            .downcast::<PyString>(py)?
+                            .into(),
+                        value_to_py(py, e.data),
+                    );
+                    Err(PyErr::new::<ConvexError, _>(ce))
+                },
             },
             Err(e) => Err(PyException::new_err(e.to_string())),
         }
@@ -186,7 +196,16 @@ impl PyConvexClient {
         match res {
             Ok(res) => match res {
                 FunctionResult::Value(v) => Ok(value_to_py(py, v)),
-                FunctionResult::ErrorMessage(e) => Ok(value_to_py(py, convex::Value::String(e))),
+                FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
+                FunctionResult::ConvexError(e) => {
+                    let ce = ConvexError::new(
+                        value_to_py(py, convex::Value::String(e.message))
+                            .downcast::<PyString>(py)?
+                            .into(),
+                        value_to_py(py, e.data),
+                    );
+                    Err(PyErr::new::<ConvexError, _>(ce))
+                },
             },
             Err(e) => Err(PyException::new_err(e.to_string())),
         }
@@ -214,7 +233,16 @@ impl PyConvexClient {
         match res {
             Ok(res) => match res {
                 FunctionResult::Value(v) => Ok(value_to_py(py, v)),
-                FunctionResult::ErrorMessage(e) => Ok(value_to_py(py, convex::Value::String(e))),
+                FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
+                FunctionResult::ConvexError(e) => {
+                    let ce = ConvexError::new(
+                        value_to_py(py, convex::Value::String(e.message))
+                            .downcast::<PyString>(py)?
+                            .into(),
+                        value_to_py(py, e.data),
+                    );
+                    Err(PyErr::new::<ConvexError, _>(ce))
+                },
             },
             Err(e) => Err(PyException::new_err(e.to_string())),
         }
@@ -245,11 +273,37 @@ impl PyConvexClient {
     }
 }
 
+#[pyclass(extends=PyException)]
+pub struct ConvexError {
+    #[pyo3(get)]
+    pub message: Py<PyString>,
+    #[pyo3(get)]
+    pub data: PyObject,
+}
+
+#[pymethods]
+impl ConvexError {
+    #[new]
+    pub fn new(message: Py<PyString>, data: PyObject) -> Self {
+        ConvexError { message, data }
+    }
+
+    fn __str__(&self, _py: Python) -> PyResult<String> {
+        Ok(self.message.to_string())
+    }
+}
+
+impl PyErrArguments for ConvexError {
+    fn arguments(self, py: Python<'_>) -> PyObject {
+        (self.message, self.data).to_object(py)
+    }
+}
+
 #[pymodule]
-fn py_client(_py: Python, m: &PyModule) -> PyResult<()> {
+fn py_client(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyConvexClient>()?;
     m.add_class::<PyQuerySubscription>()?;
     m.add_class::<PyQuerySetSubscription>()?;
-
+    m.add("ConvexError", py.get_type::<ConvexError>())?;
     Ok(())
 }
