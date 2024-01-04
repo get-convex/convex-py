@@ -19,6 +19,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [dev-dependencies]
+convex = { path = "../convex", features = ["testing"] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [features]
