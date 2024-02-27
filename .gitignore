@@ -1,0 +1,7 @@
+dist
+# dev-specific path to virtualenv, useful for the pyright language server
+# unless you are using VSCode which handles it for you.
+pyrightconfig.json
+
+# binary output
+python/_convex/_convex.*.so

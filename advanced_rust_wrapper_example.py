@@ -1,7 +1,9 @@
+# type: ignore
+# TODO this is currently broken
 import asyncio
 from datetime import datetime
 
-from py_client import PyConvexClient
+from _convex import PyConvexClient
 
 client = PyConvexClient("https://flippant-cardinal-923.convex.cloud")
 client.query("users:list")
@@ -41,7 +43,8 @@ async def interrupt_every_5_sec():
         await asyncio.sleep(5)
 
 
-loop = asyncio.get_event_loop()
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 
 loop.create_task(bg_watcher())
 loop.create_task(interrupt_every_5_sec())

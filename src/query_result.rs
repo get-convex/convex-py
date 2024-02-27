@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+
+use convex::ConvexError;
 use pyo3::{
     exceptions::PyException,
     types::{
@@ -16,10 +19,45 @@ use pyo3::{
     Python,
 };
 
+// TODO using an enum would be cleaner here
+pub fn value_to_py_wrapped(py: Python<'_>, v: convex::Value) -> PyObject {
+    let py_dict = PyDict::new(py);
+    py_dict
+        .set_item("type", PyString::new(py, "value"))
+        .unwrap();
+    py_dict.set_item("value", value_to_py(py, v)).unwrap();
+    py_dict.into()
+}
+
+pub fn convex_error_to_py_wrapped(py: Python<'_>, err: ConvexError) -> PyObject {
+    let py_dict = PyDict::new(py);
+    py_dict
+        .set_item("type", PyString::new(py, "convexerror"))
+        .unwrap();
+    py_dict.set_item("message", err.message).unwrap();
+    py_dict.set_item("data", value_to_py(py, err.data)).unwrap();
+    py_dict.into()
+}
+
 pub fn value_to_py(py: Python<'_>, v: convex::Value) -> PyObject {
     match v {
         convex::Value::Null => py.None(),
-        convex::Value::Int64(val) => val.into_py(py),
+        convex::Value::Int64(val) => {
+            let int64_module = py
+                .import("_convex.int64")
+                .expect("Couldn't import _convex.int64");
+            let int_64_class = int64_module
+                .getattr("ConvexInt64")
+                .expect("Couldn't import ConvexInt64 from _convex.int64");
+            let py_int = val.into_py(py);
+            let obj: PyObject = int_64_class
+                .call((py_int.clone(),), None)
+                .unwrap_or_else(|_| panic!("Couldn't construct ConvexInt64() from {:?}", py_int))
+                .into();
+            println!("!!!! {:?} {}", py_int, py_int);
+            obj
+        },
+
         convex::Value::Float64(val) => PyFloat::new(py, val).into(),
         convex::Value::Boolean(val) => PyBool::new(py, val).into(),
         convex::Value::String(val) => PyString::new(py, &val).into(),
@@ -41,18 +79,32 @@ pub fn value_to_py(py: Python<'_>, v: convex::Value) -> PyObject {
     }
 }
 
-pub fn py_to_value(py_val: &PyAny) -> PyResult<convex::Value> {
+// TODO Implement all or most of the coercions from the Python client.
+/// Translate a Python value to Rust, doing isinstance coersion (e.g. subclasses
+/// of list will be interpreted as lists) but not other conversions (e.g. tuple
+/// to list).
+pub fn py_to_value(py: Python<'_>, py_val: &PyAny) -> PyResult<convex::Value> {
+    let int64_module = py.import("_convex.int64")?;
+    let int_64_class = int64_module.getattr("ConvexInt64")?;
+
+    // check boolean first, since it's a subclass of int
+    if py_val.is_instance_of::<PyBool>() {
+        let val: bool = py_val.extract::<bool>()?;
+        return Ok(convex::Value::Boolean(val));
+    }
     if py_val.is_instance_of::<PyInt>() {
-        let val: i64 = py_val.extract::<i64>()?;
-        return Ok(convex::Value::Int64(val));
+        // Note conversion from int to float
+        let val: f64 = py_val.extract()?;
+        return Ok(convex::Value::Float64(val));
     }
     if py_val.is_instance_of::<PyFloat>() {
         let val: f64 = py_val.extract::<f64>()?;
         return Ok(convex::Value::Float64(val));
     }
-    if py_val.is_instance_of::<PyBool>() {
-        let val: bool = py_val.extract::<bool>()?;
-        return Ok(convex::Value::Boolean(val));
+    if py_val.is_instance(int_64_class)? {
+        let value = py_val.getattr("value")?;
+        let val: i64 = value.extract()?;
+        return Ok(convex::Value::Int64(val));
     }
     if py_val.is_instance_of::<PyString>() {
         let val: String = py_val.extract::<String>()?;
@@ -66,14 +118,36 @@ pub fn py_to_value(py_val: &PyAny) -> PyResult<convex::Value> {
         let py_list = py_val.downcast::<PyList>()?;
         let mut vec: Vec<convex::Value> = Vec::new();
         for item in py_list {
-            let inner_value: convex::Value = py_to_value(item)?;
+            let inner_value: convex::Value = py_to_value(py, item)?;
             vec.push(inner_value);
         }
         return Ok(convex::Value::Array(vec));
+    }
+    if py_val.is_instance_of::<PyDict>() {
+        let py_dict = py_val.downcast::<PyDict>()?;
+        let mut map: BTreeMap<String, convex::Value> = BTreeMap::new();
+        for (key, value) in py_dict.iter() {
+            let inner_value: convex::Value = py_to_value(py, value)?;
+            let inner_key: convex::Value = py_to_value(py, key)?;
+            match inner_key {
+                convex::Value::String(s) => map.insert(s, inner_value),
+                _ => {
+                    return Err(PyException::new_err(format!(
+                        "Bad key for Convex object: {:?}",
+                        key
+                    )))
+                },
+            };
+        }
+        return Ok(convex::Value::Object(map));
     }
     if py_val.is_none() {
         return Ok(convex::Value::Null);
     }
 
-    Err(PyException::new_err("Failed to serialize to Convex value"))
+    Err(PyException::new_err(format!(
+        "Failed to serialize to Convex value {:?} of type {:?}",
+        py_val,
+        py_val.get_type()
+    )))
 }

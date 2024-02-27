@@ -1,26 +1,29 @@
 [package]
-name = "py_client"
+name = "_convex"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
-name = "py_client"
+name = "_convex"
 crate-type = ["cdylib"]
 
 [dependencies]
-convex = { path = "../convex" }
+convex = { version = "=0.6.0" }
 futures = { workspace = true }
 parking_lot = { workspace = true }
-pyo3 = { workspace = true }
+pyo3 = { workspace = true, features = ["abi3", "abi3-py39"] }
 pyo3-asyncio = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [dev-dependencies]
-convex = { path = "../convex", features = ["testing"] }
+convex = { version = "=0.6.0", features = [ "testing" ] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+[build-dependencies]
+pyo3-build-config = { version = "0.20.2", features = ["resolve-config"] }
 
 [features]
 default = ["native-tls"]

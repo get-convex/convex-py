@@ -20,7 +20,6 @@ use pyo3::{
         PyDict,
         PyString,
     },
-    PyErrArguments,
 };
 use tokio::{
     runtime,
@@ -48,8 +47,10 @@ use tracing_subscriber::{
 
 use crate::{
     query_result::{
+        convex_error_to_py_wrapped,
         py_to_value,
         value_to_py,
+        value_to_py_wrapped,
     },
     subscription::{
         PyQuerySetSubscription,
@@ -57,17 +58,19 @@ use crate::{
     },
 };
 
+// TODO can this be removed?
 struct BTreeMapWrapper<String, Value>(BTreeMap<String, Value>);
-impl From<&PyDict> for BTreeMapWrapper<String, Value> {
-    fn from(d: &PyDict) -> Self {
+impl BTreeMapWrapper<String, Value> {
+    fn from(py: Python<'_>, d: &PyDict) -> Self {
         let map = d
             .iter()
             .filter_map(|(key, value)| {
                 let k: Result<&pyo3::types::PyString, _> = key.extract();
-                let v: Result<Value, _> = py_to_value(value);
+                let v: Result<Value, _> = py_to_value(py, value);
                 if let (Ok(k), Ok(v)) = (k, v) {
                     Some((k.to_string(), v))
                 } else {
+                    // TODO this seems wrong, shouldn't we raise here?
                     None
                 }
             })
@@ -99,8 +102,29 @@ pub struct PyConvexClient {
     client: ConvexClient,
 }
 
+impl PyConvexClient {
+    fn function_result_to_py_result(
+        &mut self,
+        py: Python<'_>,
+        result: FunctionResult,
+    ) -> PyResult<PyObject> {
+        match result {
+            FunctionResult::Value(v) => Ok(value_to_py_wrapped(py, v)),
+            FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
+            FunctionResult::ConvexError(v) => {
+                // pyo3 can't defined new custom exceptions when using the common abi
+                // `features = ["abi3"]` https://github.com/PyO3/pyo3/issues/1344
+                // so we define this error in Python. So just return a wrapped one.
+                Ok(convex_error_to_py_wrapped(py, v))
+            },
+        }
+    }
+}
+
 #[pymethods]
 impl PyConvexClient {
+    /// Note that the WebSocket is not connected yet and therefore the
+    /// connection url is not validated to be accepting connections.
     #[new]
     fn py_new(deployment_url: &PyString) -> PyResult<Self> {
         let dep = deployment_url.to_str()?;
@@ -137,7 +161,8 @@ impl PyConvexClient {
         args: Option<&PyDict>,
     ) -> PyResult<PyQuerySubscription> {
         let name: &str = name.to_str()?;
-        let args: BTreeMapWrapper<String, Value> = args.unwrap_or(PyDict::new(py)).into();
+        let args: BTreeMapWrapper<String, Value> =
+            BTreeMapWrapper::from(py, args.unwrap_or(PyDict::new(py)));
         let args: BTreeMap<String, Value> = args.deref().clone();
 
         let res = self.rt.block_on(async {
@@ -166,7 +191,8 @@ impl PyConvexClient {
         args: Option<&PyDict>,
     ) -> PyResult<PyObject> {
         let name: &str = name.to_str()?;
-        let args: BTreeMapWrapper<String, Value> = args.unwrap_or(PyDict::new(py)).into();
+        let args: BTreeMapWrapper<String, Value> =
+            BTreeMapWrapper::from(py, args.unwrap_or(PyDict::new(py)));
         let args: BTreeMap<String, Value> = args.deref().clone();
 
         let res = self.rt.block_on(async {
@@ -177,19 +203,7 @@ impl PyConvexClient {
         });
 
         match res {
-            Ok(res) => match res {
-                FunctionResult::Value(v) => Ok(value_to_py(py, v)),
-                FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
-                FunctionResult::ConvexError(e) => {
-                    let ce = ConvexError::new(
-                        value_to_py(py, convex::Value::String(e.message))
-                            .downcast::<PyString>(py)?
-                            .into(),
-                        value_to_py(py, e.data),
-                    );
-                    Err(PyErr::new::<ConvexError, _>(ce))
-                },
-            },
+            Ok(res) => self.function_result_to_py_result(py, res),
             Err(e) => Err(PyException::new_err(e.to_string())),
         }
     }
@@ -203,7 +217,8 @@ impl PyConvexClient {
         args: Option<&PyDict>,
     ) -> PyResult<PyObject> {
         let name: &str = name.to_str()?;
-        let args: BTreeMapWrapper<String, Value> = args.unwrap_or(PyDict::new(py)).into();
+        let args: BTreeMapWrapper<String, Value> =
+            BTreeMapWrapper::from(py, args.unwrap_or(PyDict::new(py)));
         let args: BTreeMap<String, Value> = args.deref().clone();
 
         let res = self.rt.block_on(async {
@@ -214,19 +229,7 @@ impl PyConvexClient {
         });
 
         match res {
-            Ok(res) => match res {
-                FunctionResult::Value(v) => Ok(value_to_py(py, v)),
-                FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
-                FunctionResult::ConvexError(e) => {
-                    let ce = ConvexError::new(
-                        value_to_py(py, convex::Value::String(e.message))
-                            .downcast::<PyString>(py)?
-                            .into(),
-                        value_to_py(py, e.data),
-                    );
-                    Err(PyErr::new::<ConvexError, _>(ce))
-                },
-            },
+            Ok(res) => self.function_result_to_py_result(py, res),
             Err(e) => Err(PyException::new_err(e.to_string())),
         }
     }
@@ -240,7 +243,8 @@ impl PyConvexClient {
         args: Option<&PyDict>,
     ) -> PyResult<PyObject> {
         let name: &str = name.to_str()?;
-        let args: BTreeMapWrapper<String, Value> = args.unwrap_or(PyDict::new(py)).into();
+        let args: BTreeMapWrapper<String, Value> =
+            BTreeMapWrapper::from(py, args.unwrap_or(PyDict::new(py)));
         let args: BTreeMap<String, Value> = args.deref().clone();
 
         let res = self.rt.block_on(async {
@@ -251,19 +255,7 @@ impl PyConvexClient {
         });
 
         match res {
-            Ok(res) => match res {
-                FunctionResult::Value(v) => Ok(value_to_py(py, v)),
-                FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
-                FunctionResult::ConvexError(e) => {
-                    let ce = ConvexError::new(
-                        value_to_py(py, convex::Value::String(e.message))
-                            .downcast::<PyString>(py)?
-                            .into(),
-                        value_to_py(py, e.data),
-                    );
-                    Err(PyErr::new::<ConvexError, _>(ce))
-                },
-            },
+            Ok(res) => self.function_result_to_py_result(py, res),
             Err(e) => Err(PyException::new_err(e.to_string())),
         }
     }
@@ -291,31 +283,19 @@ impl PyConvexClient {
             )
         });
     }
-}
 
-#[pyclass(extends=PyException)]
-pub struct ConvexError {
-    #[pyo3(get)]
-    pub message: Py<PyString>,
-    #[pyo3(get)]
-    pub data: PyObject,
-}
-
-#[pymethods]
-impl ConvexError {
-    #[new]
-    pub fn new(message: Py<PyString>, data: PyObject) -> Self {
-        ConvexError { message, data }
-    }
-
-    fn __str__(&self, _py: Python) -> PyResult<String> {
-        Ok(self.message.to_string())
-    }
-}
-
-impl PyErrArguments for ConvexError {
-    fn arguments(self, py: Python<'_>) -> PyObject {
-        (self.message, self.data).to_object(py)
+    /// Set auth which allows access to system resources.
+    ///
+    /// Set it with a deploy key obtained from the convex dashboard of a
+    /// deployment you control. This auth cannot be unset.
+    pub fn set_admin_auth(&mut self, token: &PyString) {
+        let token = token.to_string();
+        self.rt.block_on(async {
+            tokio::select!(
+                res1 = self.client.set_admin_auth(token, None) => res1,
+                _ = check_python_signals_periodically() => panic!()
+            )
+        });
     }
 }
 
@@ -361,12 +341,23 @@ fn init_logging() {
     set_global_default(subscriber).expect("Failed to set up custom logging subscriber");
 }
 
+// Exposed for testing
+#[pyfunction]
+fn py_to_rust_to_py(py: Python<'_>, py_val: &PyAny) -> PyResult<PyObject> {
+    // this is just a map
+    match py_to_value(py, py_val) {
+        Ok(val) => Ok(value_to_py(py, val)),
+        Err(err) => Err(err),
+    }
+}
+
 #[pymodule]
-fn py_client(py: Python, m: &PyModule) -> PyResult<()> {
+#[pyo3(name = "_convex")]
+fn _convex(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyConvexClient>()?;
     m.add_class::<PyQuerySubscription>()?;
     m.add_class::<PyQuerySetSubscription>()?;
-    m.add("ConvexError", py.get_type::<ConvexError>())?;
     m.add_function(wrap_pyfunction!(init_logging, m)?)?;
+    m.add_function(wrap_pyfunction!(py_to_rust_to_py, m)?)?;
     Ok(())
 }

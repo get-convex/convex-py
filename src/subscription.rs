@@ -23,10 +23,7 @@ use pyo3::{
     },
     prelude::*,
     pyclass::CompareOp,
-    types::{
-        PyDict,
-        PyString,
-    },
+    types::PyDict,
     IntoPy,
 };
 use tokio::time::{
@@ -34,13 +31,15 @@ use tokio::time::{
     Duration,
 };
 
-use crate::{
-    client::ConvexError,
-    query_result::value_to_py,
+use crate::query_result::{
+    convex_error_to_py_wrapped,
+    value_to_py,
+    value_to_py_wrapped,
 };
 
 #[pyclass]
 pub struct PyQuerySubscription {
+    // TODO document here why this needs to be an Arc<Mutex<Option<Sub>>>
     inner: Arc<Mutex<Option<convex::QuerySubscription>>>,
     pub rt_handle: Option<tokio::runtime::Handle>,
 }
@@ -141,16 +140,13 @@ impl PyQuerySubscription {
             )
         })?;
         match res.unwrap() {
-            FunctionResult::Value(v) => Ok(value_to_py(py, v)),
+            FunctionResult::Value(v) => Ok(value_to_py_wrapped(py, v)),
             FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
-            FunctionResult::ConvexError(e) => {
-                let ce = ConvexError::new(
-                    value_to_py(py, convex::Value::String(e.message))
-                        .downcast::<PyString>(py)?
-                        .into(),
-                    value_to_py(py, e.data),
-                );
-                Err(PyErr::new::<ConvexError, _>(ce))
+            FunctionResult::ConvexError(v) => {
+                // pyo3 can't defined new custom exceptions when using the common abi
+                // `features = ["abi3"]` https://github.com/PyO3/pyo3/issues/1344
+                // so we define this error in Python. So just return a wrapped one.
+                Ok(convex_error_to_py_wrapped(py, v))
             },
         }
     }
@@ -166,16 +162,13 @@ impl PyQuerySubscription {
             let res = query_sub_inner.next().await;
             let _ = query_sub.lock().insert(query_sub_inner);
             Python::with_gil(|py| match res.unwrap() {
-                FunctionResult::Value(v) => Ok(value_to_py(py, v)),
+                FunctionResult::Value(v) => Ok(value_to_py_wrapped(py, v)),
                 FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
-                FunctionResult::ConvexError(e) => {
-                    let ce = ConvexError::new(
-                        value_to_py(py, convex::Value::String(e.message))
-                            .downcast::<PyString>(py)?
-                            .into(),
-                        value_to_py(py, e.data),
-                    );
-                    Err(PyErr::new::<ConvexError, _>(ce))
+                FunctionResult::ConvexError(v) => {
+                    // pyo3 can't defined new custom exceptions when using the common abi
+                    // `features = ["abi3"]` https://github.com/PyO3/pyo3/issues/1344
+                    // so we define this error in Python. So just return a wrapped one.
+                    Ok(convex_error_to_py_wrapped(py, v))
                 },
             })
         })?;
@@ -230,17 +223,16 @@ impl PyQuerySetSubscription {
             let py_sub_id: PySubscriberId = (*sub_id).into();
 
             let sub_value: PyObject = match function_result.unwrap() {
-                FunctionResult::Value(v) => value_to_py(py, v.clone()),
+                FunctionResult::Value(v) => value_to_py_wrapped(py, v.clone()),
                 FunctionResult::ErrorMessage(e) => {
+                    // TODO this is wrong!
                     value_to_py(py, convex::Value::String(e.clone()))
                 },
-                FunctionResult::ConvexError(e) => {
-                    let e = e.clone();
-                    (
-                        value_to_py(py, convex::Value::String(e.message)),
-                        value_to_py(py, e.data),
-                    )
-                        .to_object(py)
+                FunctionResult::ConvexError(v) => {
+                    // pyo3 can't defined new custom exceptions when using the common abi
+                    // `features = ["abi3"]` https://github.com/PyO3/pyo3/issues/1344
+                    // so we define this error in Python. So just return a wrapped one.
+                    convex_error_to_py_wrapped(py, v.clone()).to_object(py)
                 },
             };
             py_dict.set_item(py_sub_id.into_py(py), sub_value).unwrap();
