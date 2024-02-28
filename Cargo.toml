@@ -2,32 +2,32 @@
 name = "_convex"
 version = "0.1.0"
 edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "_convex"
-crate-type = ["cdylib"]
+crate-type = [ "cdylib" ]
 
 [dependencies]
 convex = { version = "=0.6.0" }
-futures = { workspace = true }
-parking_lot = { workspace = true }
-pyo3 = { workspace = true, features = ["abi3", "abi3-py39"] }
-pyo3-asyncio = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
+futures = { version = "0.3" }
+parking_lot = { version = "0.12" }
+pyo3 = { features = [ "abi3", "abi3-py39" ], version = "0.19.1" }
+pyo3-asyncio = { version = "0.19.0" }
+tokio = { features = [ "full" ], version = "1" }
+tracing = { version = "0.1" }
+tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [dev-dependencies]
 convex = { version = "=0.6.0", features = [ "testing" ] }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [build-dependencies]
-pyo3-build-config = { version = "0.20.2", features = ["resolve-config"] }
+pyo3-build-config = { version = "0.20.2", features = [ "resolve-config" ] }
 
 [features]
-default = ["native-tls"]
-native-tls = ["convex/native-tls"]
-native-tls-vendored = ["convex/native-tls-vendored"]
-rustls-tls-native-roots = ["convex/rustls-tls-native-roots"]
-rustls-tls-webpki-roots = ["convex/rustls-tls-webpki-roots"]
+default = [ "native-tls" ]
+native-tls = [ "convex/native-tls" ]
+native-tls-vendored = [ "convex/native-tls-vendored" ]
+rustls-tls-native-roots = [ "convex/rustls-tls-native-roots" ]
+rustls-tls-webpki-roots = [ "convex/rustls-tls-webpki-roots" ]
