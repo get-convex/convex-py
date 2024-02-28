@@ -2,12 +2,18 @@
 
 # 0.6.0
 
-This is a rewrite adding subscribing to live query updates. The Python client
-now wraps the [Convex Rust client](https://docs.rs/convex) using the
-PyO3[https://pyo3.rs/].
+Version 0.6.0 is a rewrite which adds the ability to subscribe to live query
+updates. The Python client now wraps the
+[Convex Rust client](https://docs.rs/convex) using the PyO3[https://pyo3.rs/].
 
-The API is a superset but if you encounter unexpected incompatibilities consider
-the old client, moved to `convex.http_client`.
+The API is a superset of the API in 0.5.1 but there are some behavior
+differences. If you encounter unexpected incompatibilities consider the old
+client, moved to `convex.http_client`.
+
+One big change is that running a `client.query()` or mutation or action will
+retry on network errors instead of throwing. If you were catching network errors
+to implement retries in your code you should be able to get rid of this The new
+Convex client will retry indefinitely.
 
 # 0.5.1
 
