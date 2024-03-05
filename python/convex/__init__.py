@@ -123,15 +123,6 @@ class QuerySubscription:
             raise ConvexError(result["message"], result["data"])
         return result["value"]
 
-    def __aiter__(self) -> QuerySubscription:
-        return self
-
-    async def __anext__(self) -> ConvexValue:
-        result = await self.safe_inner_sub().anext()
-        if result["type"] == "convexerror":
-            raise ConvexError(result["message"], result["data"])
-        return result["value"]
-
     def unsubscribe(self) -> None:
         """Unsubscribe from the query and drop this subscription from the active query set.
 
@@ -174,17 +165,6 @@ class QuerySetSubscription:
             result[k] = result[k]
         return result
 
-    def __aiter__(self) -> QuerySetSubscription:
-        return self
-
-    async def __anext__(self) -> Optional[Dict[SubscriberId, ConvexValue]]:
-        result = await self.safe_inner_sub().anext()
-        if not result:
-            return result
-        for k in result:
-            result[k] = result[k]
-        return result
-
 
 class ConvexClient:
     """WebSocket-based Convex Client.
@@ -193,9 +173,9 @@ class ConvexClient:
     queries/mutations/actions and manage query subscriptions.
     """
 
-    # This client wraps PyConvexClient, implementing
-    # - implements additional type convertions (e.g. tuples to arrays)
-    # - makes arguments dicts optional
+    # This client wraps PyConvexClient by
+    # - implementing additional type convertions (e.g. tuples to arrays)
+    # - making arguments dicts optional
 
     def __init__(self, deployment_url: str):
         """Construct a WebSocket-based client given the URL of a Convex deployment."""
