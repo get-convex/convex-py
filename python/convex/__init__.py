@@ -39,7 +39,7 @@ __all__ = [
     "ConvexInt64",
 ]
 
-__version__ = "0.6.0a2"  # Also update in pyproject.toml
+__version__ = "0.6.0"  # Also update in pyproject.toml
 
 
 class ConvexError(Exception):

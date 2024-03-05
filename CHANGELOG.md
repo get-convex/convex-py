@@ -12,8 +12,8 @@ client, moved to `convex.http_client`.
 
 One big change is that running a `client.query()` or mutation or action will
 retry on network errors instead of throwing. If you were catching network errors
-to implement retries in your code you should be able to get rid of this The new
-Convex client will retry indefinitely.
+to implement retries in your code you should be able to get rid of this code.
+The Convex Python client will retry indefinitely.
 
 # 0.5.1
 
