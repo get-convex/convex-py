@@ -22,9 +22,6 @@ from .values import (
     json_to_convex,
 )
 
-# Configure Python's logging
-logging.basicConfig(level=logging.DEBUG)
-
 # Initialize Rust's logging system
 init_logging()
 

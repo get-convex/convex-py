@@ -43,6 +43,11 @@ class PyConvexClient:
     def set_auth(self, token: Optional[str]) -> None: ...
     def set_admin_auth(self, token: str) -> None: ...
 
-def init_logging() -> None: ...
+def init_logging() -> None:
+    """
+    Configure all tracing events with target "convex logs" to be written to
+    stdout.
+    """
+
 def py_to_rust_to_py(value: Any) -> Any:
     """Convert a Python value to Rust and bring it back to test conversions."""

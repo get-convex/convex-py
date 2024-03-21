@@ -1,5 +1,7 @@
 # Upcoming
 
+- Don't set global log level
+
 # 0.6.0
 
 Version 0.6.0 is a rewrite which adds the ability to subscribe to live query
