@@ -47,7 +47,7 @@ requests = "^2.28.1"
 
 [tool.poetry.group.dev.dependencies]
 autoflake = "^2.0.0"
-black = "^23.0.0"
+black = ">=23,<25"
 flake8 = { version = "^6.0.0", python = "^3.9" }
 flake8-bugbear = { version = "^23.0.0", python = "^3.9" }
 flake8-docstrings = { version = "^1.7.0", python = "^3.9" }
