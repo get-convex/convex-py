@@ -2,6 +2,7 @@
 
 For general use the WebSocket based ConvexClient is better.
 """
+
 import warnings
 from typing import Any, Dict, Optional
 

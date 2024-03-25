@@ -1,4 +1,5 @@
 """Value types supported by Convex."""
+
 import base64
 import math
 import struct
