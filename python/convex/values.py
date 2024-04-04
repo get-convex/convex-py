@@ -96,8 +96,6 @@ def int_to_float(v: int) -> float:
 
 
 def _validate_object_field(k: str) -> None:
-    if len(k) == 0:
-        raise ValueError("Empty field names are disallowed.")
     if len(k) > MAX_IDENTIFIER_LEN:
         raise ValueError(
             f"Field name {k} exceeds maximum field name length {MAX_IDENTIFIER_LEN}."
