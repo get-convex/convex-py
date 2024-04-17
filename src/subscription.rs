@@ -14,7 +14,6 @@ use convex::{
 use futures::StreamExt;
 use parking_lot::Mutex;
 use pyo3::{
-    self,
     exceptions::{
         PyException,
         PyNotImplementedError,
@@ -24,7 +23,6 @@ use pyo3::{
     prelude::*,
     pyclass::CompareOp,
     types::PyDict,
-    IntoPy,
 };
 use tokio::time::{
     sleep,
