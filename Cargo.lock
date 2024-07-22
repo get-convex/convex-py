@@ -165,9 +165,7 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "convex"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5ce0f74b897a7992e99735decdab7dde588440adf6c1aa1961b85040c3db7a8"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -192,9 +190,7 @@ dependencies = [
 
 [[package]]
 name = "convex_sync_types"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d314ce315a498702386a23d6d8c63b605697d8e2b302dcea5dda993ab54b32ba"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -518,9 +514,9 @@ dependencies = [
 
 [[package]]
 name = "imbl"
-version = "2.0.3"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "978d142c8028edf52095703af2fad11d6f611af1246685725d6b850634647085"
+checksum = "bc3be8d8cd36f33a46b1849f31f837c44d9fa87223baee3b4bd96b8f11df81eb"
 dependencies = [
  "bitmaps",
  "imbl-sized-chunks",
