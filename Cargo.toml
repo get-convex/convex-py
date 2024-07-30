@@ -9,7 +9,7 @@ name = "_convex"
 crate-type = [ "cdylib" ]
 
 [dependencies]
-convex = { path = "../convex", version = "=0.7.0" }
+convex = { path = "../convex", version = "=0.7.0", default-features = false }
 futures = { version = "0.3" }
 parking_lot = { version = "0.12" }
 pyo3 = { features = [ "abi3", "abi3-py39" ], version = "0.20.3" }
@@ -19,14 +19,14 @@ tracing = { version = "0.1" }
 tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [dev-dependencies]
-convex = { path = "../convex", version = "=0.7.0", features = [ "testing" ] }
+convex = { path = "../convex", version = "=0.7.0", default-features = false, features = [ "testing" ] }
 tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [build-dependencies]
 pyo3-build-config = { version = "0.20.3" }
 
 [features]
-default = [ "native-tls" ]
+default = [ "native-tls-vendored" ]
 native-tls = [ "convex/native-tls" ]
 native-tls-vendored = [ "convex/native-tls-vendored" ]
 rustls-tls-native-roots = [ "convex/rustls-tls-native-roots" ]
