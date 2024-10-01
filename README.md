@@ -28,7 +28,12 @@ Basic usage:
   '_id': '1f053fgh2tt2fc93mw3sn2x09h5bj08',
   'author': 'Sarah',
   'body': "Yeah, it's working pretty well for me."}]
->>> client.mutation("sendMessage", dict(author="Me", body="Hello!"))
+>>> client.mutation("messages:send", dict(author="Me", body="Hello!"))
+>>> for mesages client.subscribe("messages:list", {}):
+...     print(len(messages))
+...
+3
+<this for loop lasts until you break out with ctrl-c>
 ```
 
 To find the url of your convex backend, open the deployment you want to work
