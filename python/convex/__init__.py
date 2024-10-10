@@ -120,6 +120,15 @@ class QuerySubscription:
             raise ConvexError(result["message"], result["data"])
         return result["value"]
 
+    def __aiter__(self) -> QuerySubscription:
+        return self
+
+    async def __anext__(self) -> ConvexValue:
+        result = await self.safe_inner_sub().anext()
+        if result["type"] == "convexerror":
+            raise ConvexError(result["message"], result["data"])
+        return result["value"]
+
     def unsubscribe(self) -> None:
         """Unsubscribe from the query and drop this subscription from the active query set.
 
@@ -156,6 +165,17 @@ class QuerySetSubscription:
 
     def __next__(self) -> Optional[Dict[SubscriberId, ConvexValue]]:
         result = self.safe_inner_sub().next()
+        if not result:
+            return result
+        for k in result:
+            result[k] = result[k]
+        return result
+
+    def __aiter__(self) -> QuerySetSubscription:
+        return self
+
+    async def __anext__(self) -> Optional[Dict[SubscriberId, ConvexValue]]:
+        result = await self.safe_inner_sub().anext()
         if not result:
             return result
         for k in result:
