@@ -41,7 +41,7 @@ class ConvexHttpClient:
         self.debug: bool = False
         # format prerelease with a dash in headers
         version = __version__.replace("a", "-a")
-        self.headers = {"Convex-Client": f"python-convex-{version}"}
+        self.headers = {"Convex-Client": f"python-{version}"}
 
     def set_auth(self, value: str) -> None:
         """Set auth for use when calling Convex functions."""

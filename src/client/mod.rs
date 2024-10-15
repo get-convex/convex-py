@@ -126,7 +126,7 @@ impl PyConvexClient {
     /// Note that the WebSocket is not connected yet and therefore the
     /// connection url is not validated to be accepting connections.
     #[new]
-    fn py_new(deployment_url: &PyString) -> PyResult<Self> {
+    fn py_new(deployment_url: &PyString, version: &PyString) -> PyResult<Self> {
         let dep = deployment_url.to_str()?;
         // The ConvexClient is instantiated in the context of a tokio Runtime, and
         // needs to run its worker in the background so that it can constantly
@@ -139,7 +139,8 @@ impl PyConvexClient {
             .unwrap();
 
         // Block on the async function using the Tokio runtime.
-        let instance = rt.block_on(ConvexClient::new(dep));
+        let client_id = format!("python-{}", version.to_str()?);
+        let instance = rt.block_on(ConvexClient::new_with_client_id(dep, &client_id));
         match instance {
             Ok(instance) => Ok(PyConvexClient {
                 rt,

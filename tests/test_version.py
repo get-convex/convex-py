@@ -14,4 +14,4 @@ def test_version() -> None:
     # Convex backend expects a dash in 0.1.6-a0, PyPI doesn't.
     if "a" in version:
         version = version.replace("a", "-a")
-    assert http_client.headers["Convex-Client"] == f"python-convex-{version}"
+    assert http_client.headers["Convex-Client"] == f"python-{version}"

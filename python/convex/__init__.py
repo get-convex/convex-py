@@ -176,7 +176,7 @@ class ConvexClient:
 
     def __init__(self, deployment_url: str):
         """Construct a WebSocket-based client given the URL of a Convex deployment."""
-        self.client: PyConvexClient = PyConvexClient(deployment_url)
+        self.client: PyConvexClient = PyConvexClient(deployment_url, __version__)
 
     def subscribe(self, name: str, args: FunctionArgs = None) -> QuerySubscription:
         """Return a to subscription to the query `name` with optional `args`."""
