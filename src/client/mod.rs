@@ -9,6 +9,7 @@ use std::{
 
 use convex::{
     ConvexClient,
+    ConvexClientBuilder,
     FunctionResult,
     Value,
 };
@@ -140,7 +141,11 @@ impl PyConvexClient {
 
         // Block on the async function using the Tokio runtime.
         let client_id = format!("python-{}", version.to_str()?);
-        let instance = rt.block_on(ConvexClient::new_with_client_id(dep, &client_id));
+        let instance = rt.block_on(
+            ConvexClientBuilder::new(dep)
+                .with_client_id(&client_id)
+                .build(),
+        );
         match instance {
             Ok(instance) => Ok(PyConvexClient {
                 rt,
