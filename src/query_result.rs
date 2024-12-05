@@ -4,15 +4,18 @@ use convex::ConvexError;
 use pyo3::{
     exceptions::PyException,
     types::{
+        PyAnyMethods,
         PyBool,
         PyBytes,
         PyDict,
+        PyDictMethods,
         PyFloat,
         PyInt,
         PyList,
+        PyListMethods,
         PyString,
     },
-    IntoPy,
+    Borrowed,
     PyAny,
     PyObject,
     PyResult,
@@ -49,17 +52,15 @@ pub fn value_to_py(py: Python<'_>, v: convex::Value) -> PyObject {
             let int_64_class = int64_module
                 .getattr("ConvexInt64")
                 .expect("Couldn't import ConvexInt64 from _convex.int64");
-            let py_int = val.into_py(py);
             let obj: PyObject = int_64_class
-                .call((py_int.clone(),), None)
-                .unwrap_or_else(|_| panic!("Couldn't construct ConvexInt64() from {:?}", py_int))
+                .call((val,), None)
+                .unwrap_or_else(|_| panic!("Couldn't construct ConvexInt64() from {:?}", val))
                 .into();
-            println!("!!!! {:?} {}", py_int, py_int);
             obj
         },
 
         convex::Value::Float64(val) => PyFloat::new(py, val).into(),
-        convex::Value::Boolean(val) => PyBool::new(py, val).into(),
+        convex::Value::Boolean(val) => PyBool::new(py, val).as_any().clone().unbind(),
         convex::Value::String(val) => PyString::new(py, &val).into(),
         convex::Value::Bytes(val) => PyBytes::new(py, &val).into(),
         convex::Value::Array(arr) => {
@@ -83,7 +84,8 @@ pub fn value_to_py(py: Python<'_>, v: convex::Value) -> PyObject {
 /// Translate a Python value to Rust, doing isinstance coersion (e.g. subclasses
 /// of list will be interpreted as lists) but not other conversions (e.g. tuple
 /// to list).
-pub fn py_to_value(py: Python<'_>, py_val: &PyAny) -> PyResult<convex::Value> {
+pub fn py_to_value(py_val: Borrowed<'_, '_, PyAny>) -> PyResult<convex::Value> {
+    let py = py_val.py();
     let int64_module = py.import("_convex.int64")?;
     let int_64_class = int64_module.getattr("ConvexInt64")?;
 
@@ -101,7 +103,7 @@ pub fn py_to_value(py: Python<'_>, py_val: &PyAny) -> PyResult<convex::Value> {
         let val: f64 = py_val.extract::<f64>()?;
         return Ok(convex::Value::Float64(val));
     }
-    if py_val.is_instance(int_64_class)? {
+    if py_val.is_instance(&int_64_class)? {
         let value = py_val.getattr("value")?;
         let val: i64 = value.extract()?;
         return Ok(convex::Value::Int64(val));
@@ -118,7 +120,7 @@ pub fn py_to_value(py: Python<'_>, py_val: &PyAny) -> PyResult<convex::Value> {
         let py_list = py_val.downcast::<PyList>()?;
         let mut vec: Vec<convex::Value> = Vec::new();
         for item in py_list {
-            let inner_value: convex::Value = py_to_value(py, item)?;
+            let inner_value: convex::Value = py_to_value(item.as_borrowed())?;
             vec.push(inner_value);
         }
         return Ok(convex::Value::Array(vec));
@@ -127,8 +129,8 @@ pub fn py_to_value(py: Python<'_>, py_val: &PyAny) -> PyResult<convex::Value> {
         let py_dict = py_val.downcast::<PyDict>()?;
         let mut map: BTreeMap<String, convex::Value> = BTreeMap::new();
         for (key, value) in py_dict.iter() {
-            let inner_value: convex::Value = py_to_value(py, value)?;
-            let inner_key: convex::Value = py_to_value(py, key)?;
+            let inner_value: convex::Value = py_to_value(value.as_borrowed())?;
+            let inner_key: convex::Value = py_to_value(key.as_borrowed())?;
             match inner_key {
                 convex::Value::String(s) => map.insert(s, inner_value),
                 _ => {

@@ -1,10 +1,10 @@
 use std::{
     collections::BTreeMap,
+    future::Future,
     io::{
         self,
         Write,
     },
-    ops::Deref,
 };
 
 use convex::{
@@ -17,10 +17,7 @@ use pyo3::{
     exceptions::PyException,
     prelude::*,
     pyclass,
-    types::{
-        PyDict,
-        PyString,
-    },
+    types::PyDict,
 };
 use tokio::{
     runtime,
@@ -59,40 +56,31 @@ use crate::{
     },
 };
 
-// TODO can this be removed?
-struct BTreeMapWrapper<String, Value>(BTreeMap<String, Value>);
-impl BTreeMapWrapper<String, Value> {
-    fn from(py: Python<'_>, d: &PyDict) -> Self {
+/// A wrapper type that can accept a Python `Dict[str, CoercibleToConvexValue]`
+#[derive(Default)]
+pub struct FunctionArgsWrapper(BTreeMap<String, Value>);
+impl<'py> FromPyObject<'py> for FunctionArgsWrapper {
+    fn extract_bound(d: &Bound<'py, PyAny>) -> PyResult<Self> {
         let map = d
+            .downcast::<PyDict>()?
             .iter()
-            .filter_map(|(key, value)| {
-                let k: Result<&pyo3::types::PyString, _> = key.extract();
-                let v: Result<Value, _> = py_to_value(py, value);
-                if let (Ok(k), Ok(v)) = (k, v) {
-                    Some((k.to_string(), v))
-                } else {
-                    // TODO this seems wrong, shouldn't we raise here?
-                    None
-                }
+            .map(|(key, value)| {
+                let k = key.extract::<String>()?;
+                let v = py_to_value(value.as_borrowed())?;
+                Ok((k, v))
             })
-            .collect();
+            .collect::<PyResult<_>>()?;
 
-        BTreeMapWrapper(map)
+        Ok(FunctionArgsWrapper(map))
     }
 }
 
-impl<K, V> Deref for BTreeMapWrapper<K, V> {
-    type Target = BTreeMap<K, V>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-async fn check_python_signals_periodically() -> PyResult<()> {
+async fn check_python_signals_periodically() -> PyErr {
     loop {
         sleep(Duration::from_secs(1)).await;
-        Python::with_gil(|py| py.check_signals())?;
+        if let Err(e) = Python::with_gil(|py| py.check_signals()) {
+            return e;
+        }
     }
 }
 /// An asynchronous client to interact with a specific project to perform
@@ -120,6 +108,18 @@ impl PyConvexClient {
             },
         }
     }
+
+    fn block_on_and_check_signals<'a, T, E: ToString, F: Future<Output = Result<T, E>>>(
+        &'a mut self,
+        f: impl FnOnce(&'a mut ConvexClient) -> F,
+    ) -> PyResult<T> {
+        self.rt.block_on(async {
+            tokio::select!(
+                res1 = f(&mut self.client) => res1.map_err(|e| PyException::new_err(e.to_string())),
+                res2 = check_python_signals_periodically() => Err(res2),
+            )
+        })
+    }
 }
 
 #[pymethods]
@@ -127,8 +127,7 @@ impl PyConvexClient {
     /// Note that the WebSocket is not connected yet and therefore the
     /// connection url is not validated to be accepting connections.
     #[new]
-    fn py_new(deployment_url: &PyString, version: &PyString) -> PyResult<Self> {
-        let dep = deployment_url.to_str()?;
+    fn py_new(deployment_url: &str, version: &str) -> PyResult<Self> {
         // The ConvexClient is instantiated in the context of a tokio Runtime, and
         // needs to run its worker in the background so that it can constantly
         // listen for new messages from the server. Here, we choose to build a
@@ -140,9 +139,9 @@ impl PyConvexClient {
             .unwrap();
 
         // Block on the async function using the Tokio runtime.
-        let client_id = format!("python-{}", version.to_str()?);
+        let client_id = format!("python-{}", version);
         let instance = rt.block_on(
-            ConvexClientBuilder::new(dep)
+            ConvexClientBuilder::new(deployment_url)
                 .with_client_id(&client_id)
                 .build(),
         );
@@ -160,110 +159,58 @@ impl PyConvexClient {
     }
 
     /// Creates a single subscription to a query, with optional args.
+    #[pyo3(signature = (name, args=None))]
     pub fn subscribe(
         &mut self,
-        py: Python<'_>,
-        name: &PyString,
-        args: Option<&PyDict>,
+        name: &str,
+        args: Option<FunctionArgsWrapper>,
     ) -> PyResult<PyQuerySubscription> {
-        let name: &str = name.to_str()?;
-        let args: BTreeMapWrapper<String, Value> =
-            BTreeMapWrapper::from(py, args.unwrap_or(PyDict::new(py)));
-        let args: BTreeMap<String, Value> = args.deref().clone();
-
-        let res = self.rt.block_on(async {
-            tokio::select!(
-                res1 = self.client.subscribe(name, args) => res1,
-                res2 = check_python_signals_periodically() => Err(res2.expect_err("Panic!").into())
-            )
-        });
-        match res {
-            Ok(res) => {
-                let mut py_res: PyQuerySubscription = res.into();
-                py_res.rt_handle = Some(self.rt.handle().clone());
-                Ok(py_res)
-            },
-            Err(e) => Err(PyException::new_err(e.to_string())),
-        }
+        let args: BTreeMap<String, Value> = args.unwrap_or_default().0;
+        let res = self.block_on_and_check_signals(|client| client.subscribe(name, args))?;
+        Ok(PyQuerySubscription::new(res, self.rt.handle().clone()))
     }
 
     /// Make a oneshot request to a query `name` with `args`.
     ///
     /// Returns a `convex::Value` representing the result of the query.
+    #[pyo3(signature = (name, args=None))]
     pub fn query(
         &mut self,
         py: Python<'_>,
-        name: &PyString,
-        args: Option<&PyDict>,
+        name: &str,
+        args: Option<FunctionArgsWrapper>,
     ) -> PyResult<PyObject> {
-        let name: &str = name.to_str()?;
-        let args: BTreeMapWrapper<String, Value> =
-            BTreeMapWrapper::from(py, args.unwrap_or(PyDict::new(py)));
-        let args: BTreeMap<String, Value> = args.deref().clone();
-
-        let res = self.rt.block_on(async {
-            tokio::select!(
-                res1 = self.client.query(name, args) => res1,
-                res2 = check_python_signals_periodically() => Err(res2.expect_err("Panic!").into())
-            )
-        });
-
-        match res {
-            Ok(res) => self.function_result_to_py_result(py, res),
-            Err(e) => Err(PyException::new_err(e.to_string())),
-        }
+        let args: BTreeMap<String, Value> = args.unwrap_or_default().0;
+        let res = self.block_on_and_check_signals(|client| client.query(name, args))?;
+        self.function_result_to_py_result(py, res)
     }
 
     /// Perform a mutation `name` with `args` and return a future
     /// containing the return value of the mutation once it completes.
+    #[pyo3(signature = (name, args=None))]
     pub fn mutation(
         &mut self,
         py: Python<'_>,
-        name: &PyString,
-        args: Option<&PyDict>,
+        name: &str,
+        args: Option<FunctionArgsWrapper>,
     ) -> PyResult<PyObject> {
-        let name: &str = name.to_str()?;
-        let args: BTreeMapWrapper<String, Value> =
-            BTreeMapWrapper::from(py, args.unwrap_or(PyDict::new(py)));
-        let args: BTreeMap<String, Value> = args.deref().clone();
-
-        let res = self.rt.block_on(async {
-            tokio::select!(
-                res1 = self.client.mutation(name, args) => res1,
-                res2 = check_python_signals_periodically() => Err(res2.expect_err("Panic!").into())
-            )
-        });
-
-        match res {
-            Ok(res) => self.function_result_to_py_result(py, res),
-            Err(e) => Err(PyException::new_err(e.to_string())),
-        }
+        let args: BTreeMap<String, Value> = args.unwrap_or_default().0;
+        let res = self.block_on_and_check_signals(|client| client.mutation(name, args))?;
+        self.function_result_to_py_result(py, res)
     }
 
     /// Perform an action `name` with `args` and return a future
     /// containing the return value of the action once it completes.
+    #[pyo3(signature = (name, args=None))]
     pub fn action(
         &mut self,
         py: Python<'_>,
-        name: &PyString,
-        args: Option<&PyDict>,
+        name: &str,
+        args: Option<FunctionArgsWrapper>,
     ) -> PyResult<PyObject> {
-        let name: &str = name.to_str()?;
-        let args: BTreeMapWrapper<String, Value> =
-            BTreeMapWrapper::from(py, args.unwrap_or(PyDict::new(py)));
-        let args: BTreeMap<String, Value> = args.deref().clone();
-
-        let res = self.rt.block_on(async {
-            tokio::select!(
-                res1 = self.client.action(name, args) => res1,
-                res2 = check_python_signals_periodically() => Err(res2.expect_err("Panic!").into())
-            )
-        });
-
-        match res {
-            Ok(res) => self.function_result_to_py_result(py, res),
-            Err(e) => Err(PyException::new_err(e.to_string())),
-        }
+        let args: BTreeMap<String, Value> = args.unwrap_or_default().0;
+        let res = self.block_on_and_check_signals(|client| client.action(name, args))?;
+        self.function_result_to_py_result(py, res)
     }
 
     /// Get a consistent view of the results of every query the client is
@@ -280,28 +227,27 @@ impl PyConvexClient {
     /// Set it with a token that you get from your auth provider via their login
     /// flow. If `None` is passed as the token, then auth is unset (logging
     /// out).
-    pub fn set_auth(&mut self, token: Option<&PyString>) {
-        let token = token.map(|t| t.to_string());
+    #[pyo3(signature = (token=None))]
+    pub fn set_auth(&mut self, token: Option<String>) -> PyResult<()> {
         self.rt.block_on(async {
             tokio::select!(
-                res1 = self.client.set_auth(token) => res1,
-                _ = check_python_signals_periodically() => panic!()
+                () = self.client.set_auth(token) => Ok(()),
+                err = check_python_signals_periodically() => Err(err),
             )
-        });
+        })
     }
 
     /// Set auth which allows access to system resources.
     ///
     /// Set it with a deploy key obtained from the convex dashboard of a
     /// deployment you control. This auth cannot be unset.
-    pub fn set_admin_auth(&mut self, token: &PyString) {
-        let token = token.to_string();
+    pub fn set_admin_auth(&mut self, token: String) -> PyResult<()> {
         self.rt.block_on(async {
             tokio::select!(
-                res1 = self.client.set_admin_auth(token, None) => res1,
-                _ = check_python_signals_periodically() => panic!()
+                () = self.client.set_admin_auth(token, None) => Ok(()),
+                err = check_python_signals_periodically() => Err(err),
             )
-        });
+        })
     }
 }
 
@@ -349,9 +295,9 @@ fn init_logging() {
 
 // Exposed for testing
 #[pyfunction]
-fn py_to_rust_to_py(py: Python<'_>, py_val: &PyAny) -> PyResult<PyObject> {
+fn py_to_rust_to_py(py: Python<'_>, py_val: Bound<'_, PyAny>) -> PyResult<PyObject> {
     // this is just a map
-    match py_to_value(py, py_val) {
+    match py_to_value(py_val.as_borrowed()) {
         Ok(val) => Ok(value_to_py(py, val)),
         Err(err) => Err(err),
     }
@@ -359,11 +305,11 @@ fn py_to_rust_to_py(py: Python<'_>, py_val: &PyAny) -> PyResult<PyObject> {
 
 #[pymodule]
 #[pyo3(name = "_convex")]
-fn _convex(_py: Python, m: &PyModule) -> PyResult<()> {
+fn _convex(_py: Python, m: Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyConvexClient>()?;
     m.add_class::<PyQuerySubscription>()?;
     m.add_class::<PyQuerySetSubscription>()?;
-    m.add_function(wrap_pyfunction!(init_logging, m)?)?;
-    m.add_function(wrap_pyfunction!(py_to_rust_to_py, m)?)?;
+    m.add_function(wrap_pyfunction!(init_logging, &m)?)?;
+    m.add_function(wrap_pyfunction!(py_to_rust_to_py, &m)?)?;
     Ok(())
 }

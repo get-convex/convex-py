@@ -12,8 +12,8 @@ crate-type = [ "cdylib" ]
 convex = { path = "../convex", version = "=0.8.1", default-features = false }
 futures = { version = "0.3" }
 parking_lot = { version = "0.12" }
-pyo3 = { features = [ "abi3", "abi3-py39" ], version = "0.20.3" }
-pyo3-asyncio = { features = [ "tokio-runtime" ], version = "0.20.0" }
+pyo3 = { features = [ "abi3", "abi3-py39" ], version = "0.23.3" }
+pyo3-async-runtimes = { version = "0.23.0", features = [ "tokio-runtime" ] }
 tokio = { features = [ "full" ], version = "1" }
 tracing = { version = "0.1" }
 tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
@@ -23,7 +23,7 @@ convex = { path = "../convex", version = "=0.8.1", default-features = false, fea
 tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [build-dependencies]
-pyo3-build-config = { version = "0.20.3" }
+pyo3-build-config = { version = "0.23.3" }
 
 [features]
 default = [ "native-tls-vendored" ]

@@ -35,23 +35,23 @@ use crate::query_result::{
     value_to_py_wrapped,
 };
 
-#[pyclass]
+#[pyclass(frozen)]
 pub struct PyQuerySubscription {
     // TODO document here why this needs to be an Arc<Mutex<Option<Sub>>>
     inner: Arc<Mutex<Option<convex::QuerySubscription>>>,
-    pub rt_handle: Option<tokio::runtime::Handle>,
+    pub rt_handle: tokio::runtime::Handle,
 }
 
-impl From<convex::QuerySubscription> for PyQuerySubscription {
-    fn from(query_sub: convex::QuerySubscription) -> Self {
+impl PyQuerySubscription {
+    pub fn new(query_sub: convex::QuerySubscription, rt_handle: tokio::runtime::Handle) -> Self {
         PyQuerySubscription {
             inner: Arc::new(Mutex::new(Some(query_sub))),
-            rt_handle: None,
+            rt_handle,
         }
     }
 }
 
-#[pyclass]
+#[pyclass(frozen)]
 pub struct PySubscriberId {
     inner: convex::SubscriberId,
 }
@@ -64,14 +64,12 @@ impl From<convex::SubscriberId> for PySubscriberId {
 
 #[pymethods]
 impl PySubscriberId {
-    fn __str__(slf: PyRef<'_, Self>) -> String {
-        let sub_id = &slf.inner;
-        format!("{sub_id:#?}")
+    fn __str__(&self) -> String {
+        format!("{:#?}", self.inner)
     }
 
-    fn __repr__(slf: PyRef<'_, Self>) -> String {
-        let sub_id = &slf.inner;
-        format!("{sub_id:#?}")
+    fn __repr__(&self) -> String {
+        format!("{:#?}", self.inner)
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
@@ -91,28 +89,28 @@ impl PySubscriberId {
     }
 }
 
-async fn check_python_signals_periodically() -> PyResult<()> {
+async fn check_python_signals_periodically() -> PyErr {
     loop {
         sleep(Duration::from_secs(1)).await;
-        Python::with_gil(|py| py.check_signals())?;
+        if let Err(e) = Python::with_gil(|py| py.check_signals()) {
+            return e;
+        }
     }
 }
 
 #[pymethods]
 impl PyQuerySubscription {
-    fn exists(&self, py: Python) -> Py<PyAny> {
-        let exists = self.inner.lock().is_some();
-        exists.into_py(py)
+    fn exists(&self) -> bool {
+        self.inner.lock().is_some()
     }
 
     #[getter]
-    fn id(&self, py: Python) -> PyObject {
+    fn id(&self) -> PySubscriberId {
         let query_sub = self.inner.clone();
         let query_sub_inner = query_sub.lock().take().unwrap();
         let sub_id: SubscriberId = *query_sub_inner.id();
         let _ = query_sub.lock().insert(query_sub_inner);
-        let py_sub_id: PySubscriberId = sub_id.into();
-        py_sub_id.into_py(py)
+        PySubscriberId::from(sub_id)
     }
 
     // Drops the inner subscription object, which causes a
@@ -121,9 +119,9 @@ impl PyQuerySubscription {
         self.inner.lock().take();
     }
 
-    fn next(&mut self, py: Python) -> PyResult<PyObject> {
+    fn next(&self, py: Python) -> PyResult<PyObject> {
         let query_sub = self.inner.clone();
-        let res = self.rt_handle.as_mut().unwrap().block_on(async {
+        let res = self.rt_handle.block_on(async {
             tokio::select!(
                 res1 = async move {
                     let query_sub_inner = query_sub.lock().take();
@@ -133,8 +131,9 @@ impl PyQuerySubscription {
                     let mut query_sub_inner = query_sub_inner.unwrap();
                     let res = query_sub_inner.next().await;
                     let _ = query_sub.lock().insert(query_sub_inner);
-                    Ok(res)} => res1,
-                res2 = check_python_signals_periodically() => Err(res2.err().unwrap())
+                    Ok(res)
+                } => res1,
+                res2 = check_python_signals_periodically() => Err(res2)
             )
         })?;
         match res.unwrap() {
@@ -149,9 +148,9 @@ impl PyQuerySubscription {
         }
     }
 
-    fn anext(slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
-        let query_sub = slf.inner.clone();
-        let fut = pyo3_asyncio::tokio::future_into_py(slf.py(), async move {
+    fn anext(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let query_sub = self.inner.clone();
+        let fut = pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let query_sub_inner = query_sub.lock().take();
             if query_sub_inner.is_none() {
                 return Err(PyStopAsyncIteration::new_err("Stream requires reset"));
@@ -170,11 +169,11 @@ impl PyQuerySubscription {
                 },
             })
         })?;
-        Ok(Some(fut.into()))
+        Ok(fut.unbind())
     }
 }
 
-#[pyclass]
+#[pyclass(frozen)]
 pub struct PyQuerySetSubscription {
     inner: Arc<Mutex<Option<convex::QuerySetSubscription>>>,
     pub rt_handle: Option<tokio::runtime::Handle>,
@@ -191,14 +190,13 @@ impl From<convex::QuerySetSubscription> for PyQuerySetSubscription {
 
 #[pymethods]
 impl PyQuerySetSubscription {
-    fn exists(&self, py: Python) -> Py<PyAny> {
-        let exists = self.inner.lock().is_some();
-        exists.into_py(py)
+    fn exists(&self) -> bool {
+        self.inner.lock().is_some()
     }
 
-    fn next(&mut self, py: Python) -> PyResult<PyObject> {
+    fn next(&self, py: Python) -> PyResult<PyObject> {
         let query_sub = self.inner.clone();
-        let res = self.rt_handle.as_mut().unwrap().block_on(async {
+        let res = self.rt_handle.as_ref().unwrap().block_on(async {
             tokio::select!(
                 res1 = async move {
                     let query_sub_inner = query_sub.lock().take();
@@ -208,8 +206,9 @@ impl PyQuerySetSubscription {
                     let mut query_sub_inner = query_sub_inner.unwrap();
                     let res = query_sub_inner.next().await;
                     let _ = query_sub.lock().insert(query_sub_inner);
-                    Ok(res)} => res1,
-                res2 = check_python_signals_periodically() => Err(res2.err().unwrap())
+                    Ok(res)
+                } => res1,
+                res2 = check_python_signals_periodically() => Err(res2)
             )
         })?;
         let query_results = res.unwrap();
@@ -230,17 +229,21 @@ impl PyQuerySetSubscription {
                     // pyo3 can't defined new custom exceptions when using the common abi
                     // `features = ["abi3"]` https://github.com/PyO3/pyo3/issues/1344
                     // so we define this error in Python. So just return a wrapped one.
-                    convex_error_to_py_wrapped(py, v.clone()).to_object(py)
+                    convex_error_to_py_wrapped(py, v.clone())
+                        .into_pyobject(py)?
+                        .unbind()
                 },
             };
-            py_dict.set_item(py_sub_id.into_py(py), sub_value).unwrap();
+            py_dict
+                .set_item(py_sub_id.into_pyobject(py)?, sub_value)
+                .unwrap();
         }
-        Ok(py_dict.into_py(py))
+        Ok(py_dict.into_any().unbind())
     }
 
-    fn anext(slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
-        let query_sub = slf.inner.clone();
-        let fut: &PyAny = pyo3_asyncio::tokio::future_into_py(slf.py(), async move {
+    fn anext(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let query_sub = self.inner.clone();
+        let fut = pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let query_sub_inner = query_sub.lock().take();
             if query_sub_inner.is_none() {
                 return Err(PyStopAsyncIteration::new_err("Stream requires reset"));
@@ -259,6 +262,7 @@ impl PyQuerySetSubscription {
                     let py_sub_id: PySubscriberId = (*sub_id).into();
                     let sub_value: PyObject = match function_result.unwrap() {
                         FunctionResult::Value(v) => value_to_py(py, v.clone()),
+                        // TODO: this conflates errors with genuine values
                         FunctionResult::ErrorMessage(e) => {
                             value_to_py(py, convex::Value::String(e.to_string()))
                         },
@@ -268,15 +272,16 @@ impl PyQuerySetSubscription {
                                 value_to_py(py, convex::Value::String(e.message)),
                                 value_to_py(py, e.data),
                             )
-                                .to_object(py)
+                                .into_pyobject(py)?
+                                .into_any()
+                                .unbind()
                         },
                     };
-                    py_dict.set_item(py_sub_id.into_py(py), sub_value).unwrap();
+                    py_dict.set_item(py_sub_id, sub_value).unwrap();
                 }
                 Ok(py_dict.into())
             })
         })?;
-
-        Ok(Some(fut.into()))
+        Ok(fut.unbind())
     }
 }
