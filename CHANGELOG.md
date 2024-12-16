@@ -1,6 +1,12 @@
 # Upcoming
 
+# 0.7.0
+
+- Add async iterator support to query subscription (Thanks byin)
 - Don't set global log level
+- Bump pyo3, url, convex-rs, and other dependencies
+- Switch to a default native-tls-vendored
+- Configure Convex-Client header
 
 # 0.6.0
 

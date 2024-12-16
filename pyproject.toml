@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "convex"
-version = "0.6.0"  # Also update in __init__.py
+version = "0.7.0"  # Also update in __init__.py
 description = "Python client for the reactive backend-as-a-service Convex."
 authors = [
   { name = "Convex, Inc", email = "support@convex.dev" },
@@ -35,7 +35,7 @@ features = ["pyo3/extension-module"]
 # We publish with maturin which uses the [project] metadata above
 # but these three fields are required just to be able to use poetry.
 name = "convex"
-version = "0.6.0"  # Also update in __init__.py
+version = "0.7.0"  # Also update in __init__.py
 description = "Python client for the reactive backend-as-a-service Convex."
 authors = ["Convex, Inc. <support@convex.dev>"]
 license = "Apache-2.0"
