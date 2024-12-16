@@ -9,7 +9,7 @@ name = "_convex"
 crate-type = [ "cdylib" ]
 
 [dependencies]
-convex = { path = "../convex", version = "=0.8.1", default-features = false }
+convex = { path = "../convex", version = "=0.9.0", default-features = false }
 futures = { version = "0.3" }
 parking_lot = { version = "0.12" }
 pyo3 = { features = [ "abi3", "abi3-py39" ], version = "0.23.3" }
@@ -19,7 +19,7 @@ tracing = { version = "0.1" }
 tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [dev-dependencies]
-convex = { path = "../convex", version = "=0.8.1", default-features = false, features = [ "testing" ] }
+convex = { path = "../convex", version = "=0.9.0", default-features = false, features = [ "testing" ] }
 tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [build-dependencies]
