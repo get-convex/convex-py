@@ -228,8 +228,6 @@ jobs:
       - name: Publish to PyPI
         if: ${{ startsWith(github.ref, 'refs/tags/convex-py/') }}
         uses: PyO3/maturin-action@v1
-        env:
-          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         with:
           command: upload
           args: --non-interactive --skip-existing wheels-*/*
