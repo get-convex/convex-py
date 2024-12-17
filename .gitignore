@@ -5,3 +5,5 @@ pyrightconfig.json
 
 # binary output
 python/_convex/_convex.*.so
+
+target/

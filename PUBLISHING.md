@@ -1,6 +1,12 @@
-# Manual deploy process
+# Deploy Process
+
+To manually deploy properly to pypi, use the `python-client-build` job whose
+instructions are at `go/push/open-source`
 
 ## Test publish
+
+This is useful to test out stuff against testpypi. You probably won't need it
+much, but if you do - here's how it works.
 
 First set up a section of your ~/.pypirc with a token
 
