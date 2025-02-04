@@ -57,7 +57,7 @@ maturin = ">=1.2,<2.0"
 mypy = "^1.0"
 pytest = "^7.1.2"
 pytest-profiling = "^1.7.0"
-twine = "^4.0.2"
+twine = "^6.0.0"
 types-requests = "^2.27.30"
 typing-extensions = "^4.4.0"
 
