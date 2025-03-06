@@ -136,8 +136,10 @@ For a paginated query like this:
 ```javascript
 import { query } from "./_generated/server";
 
-export default query(async ({ db }, { paginationOpts }) => {
-  return await db.query("messages").order("desc").paginate(paginationOpts);
+export default query({
+  handler: async ({ db }, { paginationOpts }) => {
+    return await db.query("messages").order("desc").paginate(paginationOpts);
+  },
 });
 ```
 
