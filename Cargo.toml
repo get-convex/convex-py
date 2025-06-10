@@ -8,6 +8,13 @@ license = "Apache-2.0"
 name = "_convex"
 crate-type = [ "cdylib" ]
 
+[features]
+default = [ "native-tls-vendored" ]
+native-tls = [ "convex/native-tls" ]
+native-tls-vendored = [ "convex/native-tls-vendored" ]
+rustls-tls-native-roots = [ "convex/rustls-tls-native-roots" ]
+rustls-tls-webpki-roots = [ "convex/rustls-tls-webpki-roots" ]
+
 [dependencies]
 convex = { version = "=0.9.0", default-features = false }
 futures = { version = "0.3" }
@@ -18,19 +25,12 @@ tokio = { features = [ "full" ], version = "1" }
 tracing = { version = "0.1" }
 tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
-[dev-dependencies]
-convex = { version = "=0.9.0", default-features = false, features = [ "testing" ] }
-tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
-
 [build-dependencies]
 pyo3-build-config = { version = "0.24" }
 
-[features]
-default = [ "native-tls-vendored" ]
-native-tls = [ "convex/native-tls" ]
-native-tls-vendored = [ "convex/native-tls-vendored" ]
-rustls-tls-native-roots = [ "convex/rustls-tls-native-roots" ]
-rustls-tls-webpki-roots = [ "convex/rustls-tls-webpki-roots" ]
+[dev-dependencies]
+convex = { version = "=0.9.0", default-features = false, features = [ "testing" ] }
+tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [lints.rust]
 unused_extern_crates = "warn"
