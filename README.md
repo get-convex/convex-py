@@ -54,6 +54,13 @@ To provide authentication for function execution, call `set_auth()`.
 >>> client.set_auth("token-from-authetication-flow")
 ```
 
+To authenticate as an admin, allowing you to run internal functions not exposed
+to the public internet, call `set_admin_auth()`.
+
+```python
+>>> client.set_admin_auth("admin-key")
+```
+
 [Join us on Discord](https://www.convex.dev/community) to get your questions
 answered or share what you're doing with Convex. If you're just getting started,
 see https://docs.convex.dev to see how to quickly spin up a backend that does
