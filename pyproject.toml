@@ -9,7 +9,7 @@ description = "Python client for the reactive backend-as-a-service Convex."
 authors = [
   { name = "Convex, Inc", email = "support@convex.dev" },
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.9.2"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: JavaScript",
@@ -41,9 +41,10 @@ authors = ["Convex, Inc. <support@convex.dev>"]
 license = "Apache-2.0"
 
 [tool.poetry.dependencies]
-python = ">=3.9"
+python = ">=3.9.2"
 python-dotenv = "^1.0.0"
 requests = "^2.32.0"
+cryptography = ">=44.0.1"
 
 [tool.poetry.group.dev.dependencies]
 autoflake = "^2.0.0"
