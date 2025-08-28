@@ -139,7 +139,7 @@ impl PyConvexClient {
             .unwrap();
 
         // Block on the async function using the Tokio runtime.
-        let client_id = format!("python-{}", version);
+        let client_id = format!("python-{version}");
         let instance = rt.block_on(
             ConvexClientBuilder::new(deployment_url)
                 .with_client_id(&client_id)
@@ -266,7 +266,7 @@ impl UDFLogVisitor {
 // Extracts a BTreeMap from our log line
 impl Visit for UDFLogVisitor {
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        let s = format!("{:?}", value);
+        let s = format!("{value:?}");
         self.fields.insert(field.name().to_string(), s);
     }
 }
@@ -279,7 +279,7 @@ impl<S: Subscriber> Layer<S> for ConvexLoggingLayer {
         event.record(&mut visitor);
         let mut log_writer = io::stdout();
         if let Some(message) = visitor.fields.get("message") {
-            writeln!(log_writer, "{}", message).unwrap();
+            writeln!(log_writer, "{message}").unwrap();
         }
     }
 }

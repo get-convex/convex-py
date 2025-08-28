@@ -54,7 +54,7 @@ pub fn value_to_py(py: Python<'_>, v: convex::Value) -> PyObject {
                 .expect("Couldn't import ConvexInt64 from _convex.int64");
             let obj: PyObject = int_64_class
                 .call((val,), None)
-                .unwrap_or_else(|_| panic!("Couldn't construct ConvexInt64() from {:?}", val))
+                .unwrap_or_else(|_| panic!("Couldn't construct ConvexInt64() from {val:?}"))
                 .into();
             obj
         },
@@ -135,8 +135,7 @@ pub fn py_to_value(py_val: Borrowed<'_, '_, PyAny>) -> PyResult<convex::Value> {
                 convex::Value::String(s) => map.insert(s, inner_value),
                 _ => {
                     return Err(PyException::new_err(format!(
-                        "Bad key for Convex object: {:?}",
-                        key
+                        "Bad key for Convex object: {key:?}"
                     )))
                 },
             };
