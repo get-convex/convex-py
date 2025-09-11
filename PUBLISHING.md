@@ -23,8 +23,7 @@ python-client-build.yml and copy it into the dist directory.
 ```
 # This is only required for distribution
 rm -r dist python/_convex/_convex.*.so
-poetry install
-poetry run maturin build --out dist
+uv run maturin build --out dist
 # test publish
 MATURIN_REPOSITORY=testpypi maturin upload dist/*
 # Now you can download thei convex package from test pypi

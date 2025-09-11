@@ -7,14 +7,14 @@ Please share any general questions, feature requests, or product feedback in our
 excited to see what you build on Convex!
 
 Please ensure that python code is formatted with
-[black](https://pypi.org/project/black/) and markdown files are formatted with
-[prettier](https://prettier.io/).
+[ruff](https://docs.astral.sh/ruff/formatter/) and markdown files are formatted
+with [prettier](https://prettier.io/).
 
 Run tests with
 
 ```
-poetry install
-poetry run pytest
+uv run maturin dev --uv
+uv run pytest
 ```
 
 Convex is a fast moving project developed by a dedicated team. We're excited to
@@ -39,20 +39,17 @@ You'll need a Rust toolchain installed (e.g. through https://rustup.rs/) to
 build this library when developing locally.
 
 ```sh
-# install dependencies
-poetry install --no-root
-
 # build _convex
 # This is requred to run tests and to use from other local installations (like smoke tests)
-poetry run maturin dev
+uv run maturin dev --uv
 
 # run a test script
-poetry run python simple_example.py
+uv run python simple_example.py
 
 # interactive shell
-poetry run python
+uv run python
 >>> from convex import ConvexClient
->>> client = ConvexClint("https://flippant-cardinal-923.convex.cloud")
+>>> client = ConvexClient("https://flippant-cardinal-923.convex.cloud")
 >>> print(client.query("users:list"))
 
 # The wrapped Rust client can also be run in an interactive shell
