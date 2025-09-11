@@ -1,7 +1,0 @@
-[flake8]
-max-line-length = 100
-extend_ignore = D105
-per_file_ignores =
-    tests/*.py:D100,D103,D104
-    *example*.py:D100,D103
-exclude = .venv

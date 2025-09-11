@@ -208,7 +208,7 @@ def strict_convex_to_json(v: ConvexValue) -> JsonValue:
 
 
 def coerce_args_to_convex(
-    v: Optional[Mapping[str, CoercibleToConvexValue]] = None
+    v: Optional[Mapping[str, CoercibleToConvexValue]] = None,
 ) -> Dict[str, ConvexValue]:
     """Convert a mapping of strings to objects convertable to Convex values into a dict."""
     if v is None:

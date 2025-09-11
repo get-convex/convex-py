@@ -9,8 +9,10 @@ from typing import Any, Dict, Optional
 import requests
 from requests.exceptions import HTTPError
 
-from . import __version__  # Also update in pyproject.toml
-from . import ConvexError
+from . import (
+    ConvexError,
+    __version__,  # Also update in pyproject.toml
+)
 from .values import (
     CoercibleToConvexValue,
     ConvexValue,
@@ -66,7 +68,7 @@ class ConvexHttpClient:
     def _request(self, url: str, name: str, args: FunctionArgs) -> ConvexValue:
         if args is None:
             args = {}
-        if not type(args) is dict:
+        if type(args) is not dict:
             raise Exception(
                 f"Arguments to a Convex function must be a dictionary. Received: {args}"
             )
