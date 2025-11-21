@@ -59,10 +59,14 @@ use crate::{
 /// A wrapper type that can accept a Python `Dict[str, CoercibleToConvexValue]`
 #[derive(Default)]
 pub struct FunctionArgsWrapper(BTreeMap<String, Value>);
-impl<'py> FromPyObject<'py> for FunctionArgsWrapper {
-    fn extract_bound(d: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let map = d
-            .downcast::<PyDict>()?
+impl<'a, 'py> FromPyObject<'a, 'py> for FunctionArgsWrapper {
+    type Error = PyErr;
+
+    // const INPUT_TYPE: &str = "dict[str, CoercibleToConvexValue]";
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        let map = obj
+            .cast::<PyDict>()?
             .iter()
             .map(|(key, value)| {
                 let k = key.extract::<String>()?;
@@ -78,7 +82,7 @@ impl<'py> FromPyObject<'py> for FunctionArgsWrapper {
 async fn check_python_signals_periodically() -> PyErr {
     loop {
         sleep(Duration::from_secs(1)).await;
-        if let Err(e) = Python::with_gil(|py| py.check_signals()) {
+        if let Err(e) = Python::attach(|py| py.check_signals()) {
             return e;
         }
     }
@@ -96,7 +100,7 @@ impl PyConvexClient {
         &mut self,
         py: Python<'_>,
         result: FunctionResult,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         match result {
             FunctionResult::Value(v) => Ok(value_to_py_wrapped(py, v)),
             FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
@@ -179,7 +183,7 @@ impl PyConvexClient {
         py: Python<'_>,
         name: &str,
         args: Option<FunctionArgsWrapper>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let args: BTreeMap<String, Value> = args.unwrap_or_default().0;
         let res = self.block_on_and_check_signals(|client| client.query(name, args))?;
         self.function_result_to_py_result(py, res)
@@ -193,7 +197,7 @@ impl PyConvexClient {
         py: Python<'_>,
         name: &str,
         args: Option<FunctionArgsWrapper>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let args: BTreeMap<String, Value> = args.unwrap_or_default().0;
         let res = self.block_on_and_check_signals(|client| client.mutation(name, args))?;
         self.function_result_to_py_result(py, res)
@@ -207,7 +211,7 @@ impl PyConvexClient {
         py: Python<'_>,
         name: &str,
         args: Option<FunctionArgsWrapper>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let args: BTreeMap<String, Value> = args.unwrap_or_default().0;
         let res = self.block_on_and_check_signals(|client| client.action(name, args))?;
         self.function_result_to_py_result(py, res)
@@ -295,7 +299,7 @@ fn init_logging() {
 
 // Exposed for testing
 #[pyfunction]
-fn py_to_rust_to_py(py: Python<'_>, py_val: Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn py_to_rust_to_py(py: Python<'_>, py_val: Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     // this is just a map
     match py_to_value(py_val.as_borrowed()) {
         Ok(val) => Ok(value_to_py(py, val)),

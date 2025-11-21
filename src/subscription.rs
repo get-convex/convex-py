@@ -92,7 +92,7 @@ impl PySubscriberId {
 async fn check_python_signals_periodically() -> PyErr {
     loop {
         sleep(Duration::from_secs(1)).await;
-        if let Err(e) = Python::with_gil(|py| py.check_signals()) {
+        if let Err(e) = Python::attach(|py| py.check_signals()) {
             return e;
         }
     }
@@ -119,7 +119,7 @@ impl PyQuerySubscription {
         self.inner.lock().take();
     }
 
-    fn next(&self, py: Python) -> PyResult<PyObject> {
+    fn next(&self, py: Python) -> PyResult<Py<PyAny>> {
         let query_sub = self.inner.clone();
         let res = self.rt_handle.block_on(async {
             tokio::select!(
@@ -148,7 +148,7 @@ impl PyQuerySubscription {
         }
     }
 
-    fn anext(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn anext(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let query_sub = self.inner.clone();
         let fut = pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let query_sub_inner = query_sub.lock().take();
@@ -158,7 +158,7 @@ impl PyQuerySubscription {
             let mut query_sub_inner = query_sub_inner.unwrap();
             let res = query_sub_inner.next().await;
             let _ = query_sub.lock().insert(query_sub_inner);
-            Python::with_gil(|py| match res.unwrap() {
+            Python::attach(|py| match res.unwrap() {
                 FunctionResult::Value(v) => Ok(value_to_py_wrapped(py, v)),
                 FunctionResult::ErrorMessage(e) => Err(PyException::new_err(e)),
                 FunctionResult::ConvexError(v) => {
@@ -194,7 +194,7 @@ impl PyQuerySetSubscription {
         self.inner.lock().is_some()
     }
 
-    fn next(&self, py: Python) -> PyResult<PyObject> {
+    fn next(&self, py: Python) -> PyResult<Py<PyAny>> {
         let query_sub = self.inner.clone();
         let res = self.rt_handle.as_ref().unwrap().block_on(async {
             tokio::select!(
@@ -219,7 +219,7 @@ impl PyQuerySetSubscription {
             }
             let py_sub_id: PySubscriberId = (*sub_id).into();
 
-            let sub_value: PyObject = match function_result.unwrap() {
+            let sub_value: Py<PyAny> = match function_result.unwrap() {
                 FunctionResult::Value(v) => value_to_py_wrapped(py, v.clone()),
                 FunctionResult::ErrorMessage(e) => {
                     // TODO this is wrong!
@@ -241,7 +241,7 @@ impl PyQuerySetSubscription {
         Ok(py_dict.into_any().unbind())
     }
 
-    fn anext(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn anext(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let query_sub = self.inner.clone();
         let fut = pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let query_sub_inner = query_sub.lock().take();
@@ -252,7 +252,7 @@ impl PyQuerySetSubscription {
             let res = query_sub_inner.next().await;
             let _ = query_sub.lock().insert(query_sub_inner);
 
-            Python::with_gil(|py| -> PyResult<PyObject> {
+            Python::attach(|py| -> PyResult<Py<PyAny>> {
                 let query_results = res.unwrap();
                 let py_dict = PyDict::new(py);
                 for (sub_id, function_result) in query_results.iter() {
@@ -260,7 +260,7 @@ impl PyQuerySetSubscription {
                         continue;
                     }
                     let py_sub_id: PySubscriberId = (*sub_id).into();
-                    let sub_value: PyObject = match function_result.unwrap() {
+                    let sub_value: Py<PyAny> = match function_result.unwrap() {
                         FunctionResult::Value(v) => value_to_py(py, v.clone()),
                         // TODO: this conflates errors with genuine values
                         FunctionResult::ErrorMessage(e) => {

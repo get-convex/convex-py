@@ -16,14 +16,14 @@ use pyo3::{
         PyString,
     },
     Borrowed,
+    Py,
     PyAny,
-    PyObject,
     PyResult,
     Python,
 };
 
 // TODO using an enum would be cleaner here
-pub fn value_to_py_wrapped(py: Python<'_>, v: convex::Value) -> PyObject {
+pub fn value_to_py_wrapped(py: Python<'_>, v: convex::Value) -> Py<PyAny> {
     let py_dict = PyDict::new(py);
     py_dict
         .set_item("type", PyString::new(py, "value"))
@@ -32,7 +32,7 @@ pub fn value_to_py_wrapped(py: Python<'_>, v: convex::Value) -> PyObject {
     py_dict.into()
 }
 
-pub fn convex_error_to_py_wrapped(py: Python<'_>, err: ConvexError) -> PyObject {
+pub fn convex_error_to_py_wrapped(py: Python<'_>, err: ConvexError) -> Py<PyAny> {
     let py_dict = PyDict::new(py);
     py_dict
         .set_item("type", PyString::new(py, "convexerror"))
@@ -42,7 +42,7 @@ pub fn convex_error_to_py_wrapped(py: Python<'_>, err: ConvexError) -> PyObject 
     py_dict.into()
 }
 
-pub fn value_to_py(py: Python<'_>, v: convex::Value) -> PyObject {
+pub fn value_to_py(py: Python<'_>, v: convex::Value) -> Py<PyAny> {
     match v {
         convex::Value::Null => py.None(),
         convex::Value::Int64(val) => {
@@ -52,7 +52,7 @@ pub fn value_to_py(py: Python<'_>, v: convex::Value) -> PyObject {
             let int_64_class = int64_module
                 .getattr("ConvexInt64")
                 .expect("Couldn't import ConvexInt64 from _convex.int64");
-            let obj: PyObject = int_64_class
+            let obj: Py<PyAny> = int_64_class
                 .call((val,), None)
                 .unwrap_or_else(|_| panic!("Couldn't construct ConvexInt64() from {val:?}"))
                 .into();
@@ -117,16 +117,16 @@ pub fn py_to_value(py_val: Borrowed<'_, '_, PyAny>) -> PyResult<convex::Value> {
         return Ok(convex::Value::Bytes(val));
     }
     if py_val.is_instance_of::<PyList>() {
-        let py_list = py_val.downcast::<PyList>()?;
+        let py_list = py_val.cast::<PyList>()?;
         let mut vec: Vec<convex::Value> = Vec::new();
-        for item in py_list {
+        for item in py_list.iter() {
             let inner_value: convex::Value = py_to_value(item.as_borrowed())?;
             vec.push(inner_value);
         }
         return Ok(convex::Value::Array(vec));
     }
     if py_val.is_instance_of::<PyDict>() {
-        let py_dict = py_val.downcast::<PyDict>()?;
+        let py_dict = py_val.cast::<PyDict>()?;
         let mut map: BTreeMap<String, convex::Value> = BTreeMap::new();
         for (key, value) in py_dict.iter() {
             let inner_value: convex::Value = py_to_value(value.as_borrowed())?;
