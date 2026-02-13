@@ -29,7 +29,7 @@ Basic usage:
   'author': 'Sarah',
   'body': "Yeah, it's working pretty well for me."}]
 >>> client.mutation("messages:send", dict(author="Me", body="Hello!"))
->>> for mesages client.subscribe("messages:list", {}):
+>>> for messages in client.subscribe("messages:list", {}):
 ...     print(len(messages))
 ...
 3
