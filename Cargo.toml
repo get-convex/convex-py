@@ -16,7 +16,7 @@ rustls-tls-native-roots = [ "convex/rustls-tls-native-roots" ]
 rustls-tls-webpki-roots = [ "convex/rustls-tls-webpki-roots" ]
 
 [dependencies]
-convex = { version = "=0.10.2", default-features = false }
+convex = { version = "=0.10.3", default-features = false }
 futures = { version = "0.3" }
 parking_lot = { version = "0.12" }
 pyo3 = { features = [ "abi3", "abi3-py39" ], version = "0.27" }
@@ -29,7 +29,7 @@ tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 pyo3-build-config = { version = "0.27" }
 
 [dev-dependencies]
-convex = { version = "=0.10.2", default-features = false, features = [ "testing" ] }
+convex = { version = "=0.10.3", default-features = false, features = [ "testing" ] }
 tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [lints.rust]
