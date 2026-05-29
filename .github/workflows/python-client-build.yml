@@ -21,6 +21,7 @@ permissions:
 jobs:
   linux:
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 10
     strategy:
       matrix:
         platform:
@@ -89,6 +90,7 @@ jobs:
 
   musllinux:
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 10
     strategy:
       matrix:
         platform:
@@ -127,6 +129,7 @@ jobs:
 
   windows:
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 10
     strategy:
       matrix:
         platform:
@@ -160,6 +163,7 @@ jobs:
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 10
     strategy:
       matrix:
         platform:
@@ -192,6 +196,7 @@ jobs:
 
   sdist:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Build sdist
