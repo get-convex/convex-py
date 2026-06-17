@@ -133,10 +133,10 @@ jobs:
     strategy:
       matrix:
         platform:
-          - runner: windows-latest
+          - runner: windows-large-runner
             target: x64
             python_arch: x64
-          - runner: windows-latest
+          - runner: windows-large-runner
             target: x86
             python_arch: x86
           - runner: windows-11-arm
@@ -148,6 +148,22 @@ jobs:
         with:
           python-version: 3.x
           architecture: ${{ matrix.platform.python_arch }}
+      # Defender's real-time scan dominates the cargo build wall-clock; exclude the
+      # file-heavy dirs (best-effort).
+      - name: Exclude build dirs from Windows Defender
+        shell: pwsh
+        run: |
+          foreach ($p in @(
+            "${{ github.workspace }}",
+            "$env:USERPROFILE\.cargo"
+          )) { Add-MpPreference -ExclusionPath $p -ErrorAction SilentlyContinue }
+      # windows-latest now ships VS2026, which breaks the cmake 0.1.54 crate used by
+      # the aws-lc-sys build script. Force the Ninja generator on the x64/x86 legs
+      # (the windows-11-arm runner is unaffected).
+      - name: Force Ninja CMake generator (x64/x86)
+        if: matrix.platform.target != 'aarch64'
+        shell: pwsh
+        run: Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_GENERATOR=Ninja"
       - name: Build wheels
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1
         with:
