@@ -155,9 +155,7 @@ impl PyConvexClient {
                 client: instance,
             }),
             Err(e) => Err(PyException::new_err(format!(
-                "{}: {}",
-                "Failed to create PyConvexClient",
-                &e.to_string()
+                "Failed to create PyConvexClient: {e}",
             ))),
         }
     }
