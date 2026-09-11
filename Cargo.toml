@@ -10,9 +10,9 @@ crate-type = [ "cdylib" ]
 
 [features]
 default = [ "native-tls-vendored" ]
+rustls-tls-native-roots = [ "convex/rustls-tls-native-roots" ]
 native-tls = [ "convex/native-tls" ]
 native-tls-vendored = [ "convex/native-tls-vendored" ]
-rustls-tls-native-roots = [ "convex/rustls-tls-native-roots" ]
 rustls-tls-webpki-roots = [ "convex/rustls-tls-webpki-roots" ]
 
 [dependencies]
