@@ -5,7 +5,7 @@ description = "Python client for the reactive backend-as-a-service Convex."
 authors = [
   { name = "Convex, Inc", email = "support@convex.dev" },
 ]
-requires-python = ">=3.9.2"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: JavaScript",
@@ -17,7 +17,7 @@ classifiers = [
 license = "Apache-2.0"
 
 dependencies = [
-    "requests>=2.32.0,<3",
+    "requests>=2.33.0,<3",
 ]
 
 [project.urls]
@@ -33,7 +33,7 @@ build-backend = "maturin"
 dev = [
     "maturin>=1.2,<2.0",
     "mypy~=1.0",
-    "pytest>=8.0.0,<9",
+    "pytest>=9.0.3,<10",
     "pytest-profiling>=1.7.0,<2",
     "twine>=6.0.0,<7",
     "types-requests>=2.27.30,<3",
