@@ -1,5 +1,10 @@
 # Upcoming
 
+# 0.8.0
+
+- Upgrade dependencies
+- Minimum Python is now 3.10
+
 # 0.7.0
 
 - Add async iterator support to query subscription (Thanks byin)

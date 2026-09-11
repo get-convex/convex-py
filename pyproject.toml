@@ -1,6 +1,6 @@
 [project]
 name = "convex"
-version = "0.7.0"  # Also update in __init__.py
+version = "0.8.0"  # Also update in __init__.py
 description = "Python client for the reactive backend-as-a-service Convex."
 authors = [
   { name = "Convex, Inc", email = "support@convex.dev" },
