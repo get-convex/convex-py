@@ -1,5 +1,9 @@
 # Upcoming
 
+# 0.8.1
+
+- Fix package metadata
+
 # 0.8.0
 
 - Upgrade dependencies
